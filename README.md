@@ -142,15 +142,22 @@ The project includes a streamlined `Makefile` for development:
 
 ---
 
-## Configuration
+## Configuration & Credentials
 
-Open the **Settings** window (gear icon in the sidebar) to configure:
+LyriaFlow automatically discovers your Google Cloud and Gemini credentials through a 4-tier hierarchy:
 
-- **Gemini API Key**: Provide an API key from Google AI Studio for dynamic prompt suggestions. If omitted, rich offline fallback templates are used automatically.
-- **Gemini Model**: Select between `gemini-3.7-flash` (Gemini 3.7 Flash) and `gemini-3.5-flash-lite` (Gemini 3.5 Flash Lite).
-- **Lyria MCP Binary Path**: Custom path to the `mcp-lyria-go` executable with live "Test / Ping" button.
+1. **In-App Settings** *(Highest Priority)*: Enter your Gemini API key or custom `mcp-lyria-go` path in the Settings window (persisted to macOS `UserDefaults`).
+2. **Shell Configuration**: Automatically parses `export GEMINI_API_KEY=...` and `export GOOGLE_APPLICATION_CREDENTIALS=...` from `~/.zshrc` or `~/.zshenv` (even when launched from Finder/Spotlight).
+3. **Dotenv Files**: Loads variables from `~/.config/lyriaflow/.env`, `~/Music/LyriaFlow/.env`, or `./.env`.
+4. **Google Cloud ADC**: Auto-detects `~/.config/gcloud/application_default_credentials.json` if set up via `gcloud auth application-default login`.
+
+### Settings Options
+
+- **Gemini API Key**: Google AI Studio API key for real-time prompt variations.
+- **Gemini Model**: Select between `gemini-3.7-flash` and `gemini-3.5-flash-lite`.
+- **Lyria MCP Binary Path**: Path to `mcp-lyria-go` with interactive "Test / Ping" button.
 - **Default Music Model**: Choose between `lyria-3-clip-preview` (fast clips) and `lyria-3-pro-preview` (high-fidelity music).
-- **Diagnostics & Logs**: Reveal or copy the persistent log file located at `~/Library/Logs/LyriaFlow/lyriaflow.log`.
+- **Diagnostics & Logs**: Reveal or copy persistent application logs from `~/Library/Logs/LyriaFlow/lyriaflow.log`.
 
 ---
 

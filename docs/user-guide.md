@@ -62,30 +62,42 @@ LyriaFlow is written in Swift and SwiftUI, built specifically for macOS 14 (Sono
 ### Requirements
 
 - macOS 14.0 or higher.
-- A compiled `mcp-lyria-go` binary.
-- Google Cloud project access or a Gemini API key.
+- A compiled `mcp-lyria-go` binary (installed at `~/go/bin/mcp-lyria-go` or configured via Settings).
+- Google Cloud Vertex AI credentials and/or a Gemini API key.
 
 ### Binary Location
 
-By default, LyriaFlow searches for `mcp-lyria-go` in the following locations:
+LyriaFlow searches for `mcp-lyria-go` across the following paths in order:
 
-1. `/Users/<user>/go/bin/mcp-lyria-go`
-2. `/usr/local/bin/mcp-lyria-go`
-3. `/Users/<user>/.local/bin/mcp-lyria-go`
+1. Custom path entered in Settings.
+2. `~/go/bin/mcp-lyria-go`
+3. `/opt/homebrew/bin/mcp-lyria-go`
+4. `/usr/local/bin/mcp-lyria-go`
+5. `~/.local/bin/mcp-lyria-go`
 
-You can specify a custom binary path in the app settings.
+### Credential Discovery Order
 
-### Environment Setup
+LyriaFlow features an integrated `EnvironmentLoader` that resolves credentials automatically across four sources:
 
-Set your environment variables before launching the application:
+1. **In-App Settings**: Enter keys directly in the Settings window (persisted to macOS `UserDefaults`).
+2. **User Shell Configuration**: Automatically parses `export GEMINI_API_KEY=...` and `export GOOGLE_APPLICATION_CREDENTIALS=...` from `~/.zshrc`, `~/.zshenv`, or `~/.bashrc`. This ensures credentials load seamlessly even when launching via Finder or Spotlight.
+3. **Dotenv Files**: Reads configuration from `~/.config/lyriaflow/.env`, `~/Music/LyriaFlow/.env`, or the project root `.env`.
+4. **Google Cloud Application Default Credentials (ADC)**: Automatically detects `~/.config/gcloud/application_default_credentials.json` if configured via:
+   ```bash
+   gcloud auth application-default login
+   ```
+
+### Dedicated Dotenv Configuration (Optional)
+
+You can maintain a dedicated configuration file at `~/.config/lyriaflow/.env`:
 
 ```bash
-# Google Cloud Vertex AI credentials for Lyria
-export GOOGLE_APPLICATION_CREDENTIALS="/Users/you/.config/gcloud/application_default_credentials.json"
-export GOOGLE_CLOUD_PROJECT="your-project-id"
-
-# Optional: Gemini API key for dynamic suggestions
-export GEMINI_API_KEY="AIzaSy..."
+mkdir -p ~/.config/lyriaflow
+cat <<EOF > ~/.config/lyriaflow/.env
+GEMINI_API_KEY="AIzaSy..."
+GOOGLE_APPLICATION_CREDENTIALS="/Users/you/.config/gcloud/application_default_credentials.json"
+GOOGLE_CLOUD_PROJECT="your-gcp-project-id"
+EOF
 ```
 
 ---
@@ -229,9 +241,17 @@ Click the info button `(i)` on the Now Playing stage or select **Get Info** from
 
 ## 8. Diagnostics & Troubleshooting
 
+### MCP Server Connection Lifecycle
+
+The status pill in the sidebar header reflects the live connection state of `mcp-lyria-go`:
+
+- `🟡 Connecting...`: The app is spawning the binary and performing the JSON-RPC initialization handshake. The client enforces a **12-second watchdog timeout**. If the server does not respond within 12 seconds, it transitions to an error state and records the failure.
+- `🟢 Connected (N tools)`: The server responded with protocol capabilities and registered tools (`lyria_generate_music`).
+- `🔴 Disconnected / Error`: The binary failed to launch, timed out, or exited unexpectedly. Hover over the badge or inspect the logs for details.
+
 ### Application Logs
 
-LyriaFlow records detailed diagnostic information, including MCP process communication and audio format detection, to:
+LyriaFlow records detailed diagnostic information, including MCP process communication, environment variable discovery, and audio format detection, to:
 
 ```
 ~/Library/Logs/LyriaFlow/lyriaflow.log
@@ -244,17 +264,20 @@ To access logs from within the app:
 
 ### Common Issues and Resolutions
 
-#### 1. MCP Server Offline / Red Status Indicator
+#### 1. MCP Server Stays in "Connecting..." or Fails
 - Verify that `mcp-lyria-go` is built and executable:
   ```bash
   ls -la ~/go/bin/mcp-lyria-go
   ```
-- Open Settings, check the binary path, and click **Test / Ping**.
+- If running Google Cloud authentication for the first time, generate Application Default Credentials:
+  ```bash
+  gcloud auth application-default login
+  ```
+- Open Settings, check the binary path, and click **Test / Ping** to verify the handshake.
 
 #### 2. Generation Error: "Request blocked for policy reason"
 - Vertex AI audio filters reject prompts that include named artists or protected trademarks.
 - Modify the prompt to describe sonic qualities, instruments, and genres instead of artist names.
 
-#### 3. Missing API Key Warning
-- If no Gemini API key is configured, LyriaFlow falls back to built-in musical variation templates.
-- Add an API key in Settings under **Gemini AI Suggestions** to re-enable dynamic model suggestions.
+#### 3. API Key Not Detected in GUI Launch
+- LyriaFlow automatically parses `~/.zshrc` and `~/.zshenv`. If you recently added `export GEMINI_API_KEY=...` to your shell, restart the app or paste the key directly into Settings.
