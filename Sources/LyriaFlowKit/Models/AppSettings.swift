@@ -46,8 +46,7 @@ public final class AppSettings: ObservableObject {
 
     public static let availableLyriaModels = [
         "lyria-3-clip-preview",
-        "lyria-3-pro-preview",
-        "lyria-002"
+        "lyria-3-pro-preview"
     ]
 
     public static let availableGeminiModels = [

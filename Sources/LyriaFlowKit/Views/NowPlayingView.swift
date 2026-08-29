@@ -156,7 +156,6 @@ public struct NowPlayingView: View {
         switch raw {
         case "lyria-3-clip-preview": return "Lyria 3 Clip"
         case "lyria-3-pro-preview": return "Lyria 3 Pro"
-        case "lyria-002": return "Lyria 2"
         default: return raw
         }
     }

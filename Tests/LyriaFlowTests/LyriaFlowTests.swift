@@ -67,7 +67,7 @@ final class LyriaFlowTests: XCTestCase {
     func testAppSettingsDefaults() {
         let settings = AppSettings.shared
         XCTAssertFalse(settings.effectiveMcpBinaryPath.isEmpty)
-        XCTAssertTrue(AppSettings.availableLyriaModels.contains("lyria-3-clip-preview"))
+        XCTAssertEqual(AppSettings.availableLyriaModels, ["lyria-3-clip-preview", "lyria-3-pro-preview"])
         XCTAssertTrue(AppSettings.availableGeminiModels.contains("gemini-2.5-flash"))
         XCTAssertTrue(AppSettings.availableGeminiModels.contains("gemini-3.7-flash"))
     }
