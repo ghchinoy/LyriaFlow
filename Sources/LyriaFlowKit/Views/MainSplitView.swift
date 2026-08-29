@@ -35,7 +35,10 @@ public struct MainSplitView: View {
             NSApp.activate(ignoringOtherApps: true)
         }
         .task {
-            await coordinator.connectAndVerifyServer()
+            // Asynchronously connect without blocking initial window display
+            Task {
+                await coordinator.connectAndVerifyServer()
+            }
         }
     }
 }

@@ -4,20 +4,30 @@ set -e
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$DIR"
 
-echo "🔨 Building LyriaFlow (release)..."
-swift build -c release --product LyriaFlow
+BUILD_CONFIG="debug"
+if [ "$1" == "--release" ] || [ "$1" == "-c release" ]; then
+    BUILD_CONFIG="release"
+fi
+
+if [ "$BUILD_CONFIG" == "release" ]; then
+    echo "🔨 Building LyriaFlow (release)..."
+    swift build -c release --product LyriaFlow
+    BIN_DIR="$DIR/.build/release"
+else
+    echo "⚡️ Building LyriaFlow (fast incremental debug)..."
+    swift build --product LyriaFlow
+    BIN_DIR="$DIR/.build/debug"
+fi
 
 APP_NAME="LyriaFlow.app"
 APP_DIR="$DIR/$APP_NAME"
 MACOS_DIR="$APP_DIR/Contents/MacOS"
 RESOURCES_DIR="$APP_DIR/Contents/Resources"
 
-echo "📦 Assembling $APP_NAME bundle..."
-rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR"
 mkdir -p "$RESOURCES_DIR"
 
-cp "$DIR/.build/release/LyriaFlow" "$MACOS_DIR/LyriaFlow"
+cp "$BIN_DIR/LyriaFlow" "$MACOS_DIR/LyriaFlow"
 chmod +x "$MACOS_DIR/LyriaFlow"
 
 cat <<EOF > "$APP_DIR/Contents/Info.plist"
@@ -43,5 +53,5 @@ cat <<EOF > "$APP_DIR/Contents/Info.plist"
 </plist>
 EOF
 
-echo "✅ Successfully created: $APP_DIR"
-echo "You can launch it with: open $APP_DIR"
+touch "$APP_DIR"
+echo "✅ Ready: $APP_NAME"
