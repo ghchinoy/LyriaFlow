@@ -16,23 +16,38 @@ public final class AppSettings: ObservableObject {
         if !storedGeminiApiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return storedGeminiApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        if let envKey = ProcessInfo.processInfo.environment["GEMINI_API_KEY"], !envKey.isEmpty {
+        if let envKey = EnvironmentLoader.shared.value(for: "GEMINI_API_KEY"), !envKey.isEmpty {
             return envKey
         }
         return ""
+    }
+
+    public var geminiKeySourceDescription: String {
+        if !storedGeminiApiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "Using custom key saved in Settings."
+        }
+        if let envKey = EnvironmentLoader.shared.value(for: "GEMINI_API_KEY"), !envKey.isEmpty {
+            return "Loaded from environment / shell (\(envKey.prefix(6))...)"
+        }
+        return "No API key configured. Offline musical variation templates will be used."
     }
 
     public var effectiveMcpBinaryPath: String {
         if !customMcpBinaryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return customMcpBinaryPath.trimmingCharacters(in: .whitespacesAndNewlines)
         }
+        if let envBinary = EnvironmentLoader.shared.value(for: "MCP_LYRIA_BINARY"),
+           FileManager.default.isExecutableFile(atPath: envBinary) {
+            return envBinary
+        }
         let possiblePaths = [
-            "/Users/ghchinoy/go/bin/mcp-lyria-go",
             "\(FileManager.default.homeDirectoryForCurrentUser.path)/go/bin/mcp-lyria-go",
+            "/Users/ghchinoy/go/bin/mcp-lyria-go",
+            "/opt/homebrew/bin/mcp-lyria-go",
             "/usr/local/bin/mcp-lyria-go",
             "\(FileManager.default.homeDirectoryForCurrentUser.path)/.local/bin/mcp-lyria-go"
         ]
-        return possiblePaths.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) ?? "/Users/ghchinoy/go/bin/mcp-lyria-go"
+        return possiblePaths.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) ?? possiblePaths[0]
     }
 
     public var tracksDirectory: URL {

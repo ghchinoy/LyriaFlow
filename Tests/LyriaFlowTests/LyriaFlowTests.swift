@@ -609,4 +609,12 @@ final class LyriaFlowTests: XCTestCase {
         XCTAssertTrue(logs.contains("Test error entry"))
         XCTAssertTrue(logs.contains("[UNIT_TEST]"))
     }
+
+    func testEnvironmentLoaderDiscoveryAndFallback() {
+        let loader = EnvironmentLoader.shared
+        let env = loader.resolvedEnvironment()
+        XCTAssertNotNil(env["PATH"])
+        XCTAssertTrue(env["PATH"]?.contains("/usr/bin") == true)
+        XCTAssertNotNil(env["HOME"])
+    }
 }

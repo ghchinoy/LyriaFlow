@@ -19,7 +19,7 @@
 
 ---
 
-LyriaFlow is a standalone macOS application built in Swift and SwiftUI. It bridges directly to Google's [`mcp-lyria-go`](https://github.com/GoogleCloudPlatform/vertex-ai-creative-studio/tree/main/experiments/mcp-genmedia) Model Context Protocol (MCP) server over local stdio JSON-RPC to generate music on-the-fly with Vertex AI Lyria models (`lyria-3-clip-preview` and `lyria-3-pro-preview`).
+LyriaFlow is a standalone macOS application built in Swift and SwiftUI. It bridges directly to Google's [`mcp-lyria-go`](https://github.com/GoogleCloudPlatform/vertex-ai-creative-studio/tree/main/experiments/mcp-genmedia) Model Context Protocol (MCP) server over local stdio JSON-RPC to generate music on-the-fly with Google Cloud AI Lyria models (`lyria-3-clip-preview` and `lyria-3-pro-preview`).
 
 While you listen to a track, an integrated Gemini engine suggests coherent next tracks, enables one-click 3-movement suite generation, and pre-generates audio in the background for zero-latency playback transitions.
 
@@ -188,5 +188,5 @@ This project is an open-source community contribution and is not an officially s
 
 ## Acknowledgements
 
-- **Google Cloud Platform**: [Vertex AI Creative Studio `mcp-genmedia`](https://github.com/GoogleCloudPlatform/vertex-ai-creative-studio) for the `mcp-lyria-go` server and Lyria AI music models.
+- **Google Cloud Platform**: [Google Cloud AI Creative Studio `mcp-genmedia`](https://github.com/GoogleCloudPlatform/vertex-ai-creative-studio) for the `mcp-lyria-go` server and Lyria AI music models.
 - **Model Context Protocol (MCP)**: For the standardized stdio JSON-RPC agent interface.

@@ -9,7 +9,6 @@ public actor MCPClient {
     private var pendingRequests: [Int: CheckedContinuation<[String: Any], Error>] = [:]
     private var requestIdCounter: Int = 0
     private var buffer = Data()
-    private let lock = NSLock()
 
     public init() {}
 
@@ -33,7 +32,9 @@ public actor MCPClient {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: binaryPath)
         p.arguments = ["-transport", "stdio"]
-        p.environment = ProcessInfo.processInfo.environment
+        
+        // Pass enriched environment containing PATH, GOOGLE_APPLICATION_CREDENTIALS, etc.
+        p.environment = EnvironmentLoader.shared.resolvedEnvironment()
 
         let sin = Pipe()
         let sout = Pipe()
@@ -67,9 +68,24 @@ public actor MCPClient {
             }
         }
 
+        p.terminationHandler = { [weak self] proc in
+            Task { [weak self] in
+                await self?.handleProcessTerminated(exitCode: proc.terminationStatus)
+            }
+        }
+
         try p.run()
         self.isRunning = true
         AppLogger.shared.log("mcp-lyria-go process started (PID: \(p.processIdentifier))", category: "MCP")
+    }
+
+    private func handleProcessTerminated(exitCode: Int32) {
+        AppLogger.shared.warning("mcp-lyria-go process exited with code \(exitCode)", category: "MCP")
+        isRunning = false
+        for (_, continuation) in pendingRequests {
+            continuation.resume(throwing: NSError(domain: "MCPClient", code: -1, userInfo: [NSLocalizedDescriptionKey: "mcp-lyria-go exited unexpectedly (code \(exitCode))."]))
+        }
+        pendingRequests.removeAll()
     }
 
     public func stop() {
@@ -77,6 +93,7 @@ public actor MCPClient {
         stdoutPipe?.fileHandleForReading.readabilityHandler = nil
         stderrPipe?.fileHandleForReading.readabilityHandler = nil
         if let p = process, p.isRunning {
+            p.terminationHandler = nil
             p.terminate()
             AppLogger.shared.log("mcp-lyria-go process terminated", category: "MCP")
         }
@@ -92,7 +109,6 @@ public actor MCPClient {
     }
 
     private func handleStdoutData(_ data: Data) {
-        lock.lock()
         buffer.append(data)
         var linesToProcess: [String] = []
 
@@ -103,7 +119,6 @@ public actor MCPClient {
                 linesToProcess.append(str)
             }
         }
-        lock.unlock()
 
         for line in linesToProcess {
             if let jsonData = line.data(using: .utf8),
@@ -120,7 +135,7 @@ public actor MCPClient {
         return requestIdCounter
     }
 
-    public func sendRequest(method: String, params: [String: Any]) async throws -> [String: Any] {
+    public func sendRequest(method: String, params: [String: Any], timeoutSeconds: TimeInterval = 25.0) async throws -> [String: Any] {
         guard isRunning, let stdin = stdinPipe?.fileHandleForWriting else {
             throw NSError(domain: "MCPClient", code: 2, userInfo: [NSLocalizedDescriptionKey: "MCP Server is not running."])
         }
@@ -135,10 +150,24 @@ public actor MCPClient {
 
         let data = try JSONSerialization.data(withJSONObject: requestDict, options: [])
 
+        // Schedule timeout watchdog
+        Task { [weak self, reqId] in
+            try? await Task.sleep(nanoseconds: UInt64(timeoutSeconds * 1_000_000_000))
+            await self?.handleTimeout(reqId: reqId, method: method, timeoutSeconds: timeoutSeconds)
+        }
+
         return try await withCheckedThrowingContinuation { continuation in
-            pendingRequests[reqId] = continuation
+            self.pendingRequests[reqId] = continuation
             stdin.write(data)
             stdin.write("\n".data(using: .utf8)!)
+        }
+    }
+
+    private func handleTimeout(reqId: Int, method: String, timeoutSeconds: TimeInterval) {
+        if let continuation = pendingRequests.removeValue(forKey: reqId) {
+            let err = "MCP request '\(method)' (ID: \(reqId)) timed out after \(Int(timeoutSeconds))s"
+            AppLogger.shared.error(err, category: "MCP")
+            continuation.resume(throwing: NSError(domain: "MCPClient", code: 408, userInfo: [NSLocalizedDescriptionKey: err]))
         }
     }
 
@@ -157,7 +186,7 @@ public actor MCPClient {
     public func initializeAndVerify(binaryPath: String) async throws -> (serverInfo: MCPServerInfo, tools: [MCPTool]) {
         try start(binaryPath: binaryPath)
 
-        // 1. Initialize
+        // 1. Initialize with 12s timeout
         let initResponse = try await sendRequest(
             method: "initialize",
             params: [
@@ -167,7 +196,8 @@ public actor MCPClient {
                     "name": "LyriaFlow",
                     "version": "1.0.0"
                 ]
-            ]
+            ],
+            timeoutSeconds: 12.0
         )
 
         var serverInfo = MCPServerInfo(name: "Lyria", version: "unknown")
@@ -182,8 +212,8 @@ public actor MCPClient {
         // 2. Initialized notification
         try sendNotification(method: "notifications/initialized")
 
-        // 3. List tools
-        let toolsResponse = try await sendRequest(method: "tools/list", params: [:])
+        // 3. List tools with 12s timeout
+        let toolsResponse = try await sendRequest(method: "tools/list", params: [:], timeoutSeconds: 12.0)
         var toolsList: [MCPTool] = []
 
         if let result = toolsResponse["result"] as? [String: Any],
@@ -222,12 +252,14 @@ public actor MCPClient {
 
         AppLogger.shared.log("Calling lyria_generate_music with prompt: \"\(prompt.prefix(60))...\", model: \(modelId), file: \(fileName)", category: "MCP")
 
+        // Allow up to 120 seconds for music synthesis
         let response = try await sendRequest(
             method: "tools/call",
             params: [
                 "name": "lyria_generate_music",
                 "arguments": args
-            ]
+            ],
+            timeoutSeconds: 120.0
         )
 
         if let errorObj = response["error"] as? [String: Any] {
@@ -265,9 +297,6 @@ public actor MCPClient {
         let expectedURL = localDir.appendingPathComponent(fileName)
         let baseName = (fileName as NSString).deletingPathExtension
 
-        // Candidate 1: expected URL
-        // Candidate 2: baseName.wav (in case mcp-lyria forced .wav)
-        // Candidate 3: path extracted from tool message
         var candidateURLs: [URL] = [
             expectedURL,
             localDir.appendingPathComponent("\(baseName).wav"),
@@ -283,12 +312,10 @@ public actor MCPClient {
 
         for candidate in candidateURLs {
             if fm.fileExists(atPath: candidate.path) {
-                // If candidate exists, check format and normalize if mcp-lyria wrote an MP3 as .wav
                 let detected = AudioFormatDetector.detectFormat(for: candidate)
                 AppLogger.shared.log("Found audio file at \(candidate.path), detected format: \(detected.displayName)", category: "AUDIO")
 
                 if detected == .mp3 && candidate.pathExtension.lowercased() == "wav" && fileName.hasSuffix(".mp3") {
-                    // Normalize filename to .mp3 so container matches extension
                     let targetMP3URL = localDir.appendingPathComponent(fileName)
                     try? fm.removeItem(at: targetMP3URL)
                     do {
@@ -304,7 +331,6 @@ public actor MCPClient {
             }
         }
 
-        // If not found in any candidate location, log directory contents and error
         let dirContents = (try? fm.contentsOfDirectory(atPath: localDir.path)) ?? []
         let errorMsg = "Audio file not found at \(expectedURL.path) after generation. Directory contents: \(dirContents.prefix(10))"
         AppLogger.shared.error(errorMsg, category: "MCP")

@@ -44,15 +44,15 @@ public struct SettingsView: View {
                             .accessibilityLabel("Gemini API Key input")
 
                         if !settings.storedGeminiApiKey.isEmpty {
-                            Text("Using custom user-configured API key.")
+                            Text("Using custom key saved in Settings.")
                                 .font(.caption)
                                 .foregroundColor(.green)
-                        } else if let envKey = ProcessInfo.processInfo.environment["GEMINI_API_KEY"], !envKey.isEmpty {
-                            Text("Using system environment key: \(envKey.prefix(8))...")
+                        } else if !settings.effectiveGeminiApiKey.isEmpty {
+                            Text(settings.geminiKeySourceDescription)
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(.green)
                         } else {
-                            Text("No API key set. Fallback templates will be used for suggestions.")
+                            Text("No API key configured. Fallback musical variation templates will be used.")
                                 .font(.caption)
                                 .foregroundColor(.orange)
                         }
