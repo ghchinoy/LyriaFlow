@@ -1,10 +1,12 @@
 import SwiftUI
 
 public struct MainSplitView: View {
-    @StateObject private var coordinator = PlaybackCoordinator()
+    @ObservedObject public var coordinator: PlaybackCoordinator
     @State private var showingSettings: Bool = false
 
-    public init() {}
+    public init(coordinator: PlaybackCoordinator) {
+        self.coordinator = coordinator
+    }
 
     public var body: some View {
         NavigationSplitView {
@@ -24,9 +26,13 @@ public struct MainSplitView: View {
                 TransportBar(coordinator: coordinator)
             }
         }
-        .frame(minWidth: 800, minHeight: 560)
+        .frame(minWidth: 850, minHeight: 600)
         .sheet(isPresented: $showingSettings) {
             SettingsView(settings: coordinator.settings, coordinator: coordinator)
+        }
+        .onAppear {
+            NSApp.setActivationPolicy(.regular)
+            NSApp.activate(ignoringOtherApps: true)
         }
         .task {
             await coordinator.connectAndVerifyServer()

@@ -1,4 +1,4 @@
-.PHONY: all build run spike test app install clean help
+.PHONY: all build run run-cli spike test app install clean help
 
 # Default target
 all: build
@@ -7,11 +7,12 @@ all: build
 help:
 	@echo "LyriaFlow - Minimalist macOS Music Player"
 	@echo "Available make targets:"
+	@echo "  make run      - Build and launch LyriaFlow.app (Recommended)"
+	@echo "  make run-cli  - Launch via raw swift run CLI"
 	@echo "  make build    - Compile debug binaries"
-	@echo "  make run      - Run the LyriaFlow macOS SwiftUI app"
 	@echo "  make spike    - Run the Lyria MCP verification spike"
 	@echo "  make test     - Run automated unit test suite"
-	@echo "  make app      - Build standalone LyriaFlow.app release bundle"
+	@echo "  make app      - Build standalone LyriaFlow.app bundle"
 	@echo "  make install  - Install LyriaFlow.app into ~/Applications"
 	@echo "  make clean    - Remove build artifacts and temporary files"
 
@@ -20,9 +21,19 @@ build:
 	@echo "🔨 Building LyriaFlow..."
 	@swift build
 
-## run: Launch the LyriaFlow GUI app
-run:
-	@echo "🚀 Launching LyriaFlow..."
+## app: Build release .app bundle
+app:
+	@echo "📦 Packaging LyriaFlow.app..."
+	@./scripts/build_app.sh
+
+## run: Launch the packaged LyriaFlow.app GUI
+run: app
+	@echo "🚀 Launching LyriaFlow.app..."
+	@open LyriaFlow.app
+
+## run-cli: Launch directly via swift run
+run-cli:
+	@echo "🚀 Launching LyriaFlow (CLI mode)..."
 	@swift run LyriaFlow
 
 ## spike: Run the MCP verification test harness
@@ -34,11 +45,6 @@ spike:
 test:
 	@echo "🧪 Running unit tests..."
 	@swift test
-
-## app: Build release .app bundle
-app:
-	@echo "📦 Packaging LyriaFlow.app..."
-	@./scripts/build_app.sh
 
 ## install: Install the app into ~/Applications
 install: app

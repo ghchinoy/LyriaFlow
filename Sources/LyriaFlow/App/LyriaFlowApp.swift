@@ -5,9 +5,11 @@ import LyriaFlowKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
-        if let window = NSApp.windows.first {
-            window.makeKeyAndOrderFront(nil)
+        DispatchQueue.main.async {
+            NSApp.activate(ignoringOtherApps: true)
+            for window in NSApp.windows {
+                window.makeKeyAndOrderFront(nil)
+            }
         }
     }
 
@@ -19,24 +21,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct LyriaFlowApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @StateObject private var coordinator = PlaybackCoordinator()
 
     var body: some Scene {
         WindowGroup("LyriaFlow") {
-            MainSplitView()
+            MainSplitView(coordinator: coordinator)
                 .preferredColorScheme(.dark)
+                .frame(minWidth: 850, minHeight: 600)
         }
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified)
         .commands {
             SidebarCommands()
-            CommandGroup(replacing: .newItem) {
-                // Custom quick actions
-            }
         }
 
         #if os(macOS)
         Settings {
-            SettingsView(settings: AppSettings.shared, coordinator: PlaybackCoordinator(settings: AppSettings.shared))
+            SettingsView(settings: coordinator.settings, coordinator: coordinator)
                 .preferredColorScheme(.dark)
         }
         #endif
