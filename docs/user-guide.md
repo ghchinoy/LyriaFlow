@@ -21,30 +21,7 @@ This guide covers the operation, architecture, and configuration of LyriaFlow, a
 
 LyriaFlow is written in Swift and SwiftUI, built specifically for macOS 14 (Sonoma) and later. It interfaces with Google's generative audio models via the Model Context Protocol (MCP).
 
-```
-+-------------------------------------------------------------------------------+
-|                            LyriaFlow (macOS App)                             |
-|                                                                               |
-|   +--------------------------+       +------------------------------------+   |
-|   |   PlaybackCoordinator    | <---> |            AudioEngine             |   |
-|   |       (@MainActor)       |       |  (AVAudioPlayer + Power Metering)  |   |
-|   +--------------------------+       +------------------------------------+   |
-|         ^              ^                                                      |
-|         |              |                                                      |
-|         v              v                                                      |
-|  +--------------+  +------------------------+  +---------------------------+  |
-|  |  MCPClient   |  | GeminiSuggestionEngine |  |     PersistenceStore      |  |
-|  |   (Actor)    |  |       (REST API)       |  | (~/Music/LyriaFlow/Tracks)|  |
-|  +--------------+  +------------------------+  +---------------------------+  |
-|         |                                                                     |
-+---------|---------------------------------------------------------------------+
-          |  stdio JSON-RPC
-          v
-+------------------------------------+
-|            mcp-lyria-go            |
-|       (Vertex AI Subprocess)       |
-+------------------------------------+
-```
+<img width="1128" height="942" alt="Image" src="https://github.com/user-attachments/assets/400685d9-d652-4be8-9407-5943a244849d" />
 
 ### Component Breakdown
 
@@ -217,25 +194,7 @@ Files are saved directly as native MP3 bitstreams. This preserves Google's embed
 
 Click the info button `(i)` on the Now Playing stage or select **Get Info** from any track context menu to open the Track Inspector:
 
-```
-+-------------------------------------------------------------------------------+
-|  Track Inspector                                                              |
-|                                                                               |
-|  Musical Prompt:                                                              |
-|  "Warm lo-fi ambient electronic music with soft Rhodes keys"      [Copy]      |
-|                                                                               |
-|  Generation Specs:                                                            |
-|  Lyria Model:   Lyria 3 Pro (lyria-3-pro-preview)                             |
-|  Duration:      0:30 (30.0s)                                                  |
-|  Format:        MP3 Audio (MPEG Layer 3)  [C2PA Signed]                       |
-|  Seed:          482910492                                                     |
-|  Created At:    Aug 29, 2026 at 4:30 PM                                       |
-|                                                                               |
-|  File Storage:                                                                |
-|  Path: /Users/.../Music/LyriaFlow/Tracks/lyria_1788042480_D4A5.mp3            |
-|  [Reveal in Finder]  [Copy Path]                                              |
-+-------------------------------------------------------------------------------+
-```
+<img width="1128" height="942" alt="Image" src="https://github.com/user-attachments/assets/49c11eb0-59c3-4c9a-bc9c-dec9949a24e8" />
 
 ---
 
@@ -276,7 +235,7 @@ To access logs from within the app:
 - Open Settings, check the binary path, and click **Test / Ping** to verify the handshake.
 
 #### 2. Generation Error: "Request blocked for policy reason"
-- Vertex AI audio filters reject prompts that include named artists or protected trademarks.
+- Cloud AI audio filters reject prompts that include named artists or protected trademarks.
 - Modify the prompt to describe sonic qualities, instruments, and genres instead of artist names.
 
 #### 3. API Key Not Detected in GUI Launch

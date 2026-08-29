@@ -23,26 +23,7 @@ LyriaFlow is a standalone macOS application built in Swift and SwiftUI. It bridg
 
 While you listen to a track, an integrated Gemini engine suggests coherent next tracks, enables one-click 3-movement suite generation, and pre-generates audio in the background for zero-latency playback transitions.
 
-```
-+-----------------------------------------------------------------------------------+
-|  LyriaFlow                                                                        |
-|  +---------------------+-------------------------------------------------------+  |
-|  | [Up Next] [History] |                     Now Playing                       |  |
-|  |                     |                                                       |  |
-|  | 1. Sunset Groove    |      ||||||||||||||||||||||||||||||||||||||||         |  |
-|  |    [Ready]          |              32-Bar Reactive Spectrum                 |  |
-|  |                     |                                                       |  |
-|  | 2. Deep Motion      |  "Warm lo-fi ambient electronic music with soft keys" |  |
-|  |    [Generating...]  |  Lyria 3 Pro • 30.0s • C2PA Signed • (i) Info         |  |
-|  |                     |                                                       |  |
-|  | 3. Cosmic Glide     |  Gemini Next-Track Suggestions:                       |  |
-|  |    [Queued]         |  [Similar]             [Fun Twist]        [Wildcard]  |  |
-|  |                     |  [Play] [+1] [3x Vibe] [Play] [+1] [3x]   [Play]...   |  |
-|  +---------------------+-------------------------------------------------------+  |
-|  |  0:12 [===================================-----------------------] 0:30     |  |
-|  |  [Next: Deep Motion]          [Loop] [ > ] [ >> ]          [Auto-Play] [===] |  |
-+-----------------------------------------------------------------------------------+
-```
+<img width="1128" height="942" alt="Image" src="https://github.com/user-attachments/assets/400685d9-d652-4be8-9407-5943a244849d" />
 
 ---
 
