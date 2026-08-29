@@ -23,8 +23,12 @@ public actor MCPClient {
         }
 
         guard FileManager.default.isExecutableFile(atPath: binaryPath) else {
-            throw NSError(domain: "MCPClient", code: 1, userInfo: [NSLocalizedDescriptionKey: "Binary at '\(binaryPath)' is not executable or does not exist."])
+            let err = "Binary at '\(binaryPath)' is not executable or does not exist."
+            AppLogger.shared.error(err, category: "MCP")
+            throw NSError(domain: "MCPClient", code: 1, userInfo: [NSLocalizedDescriptionKey: err])
         }
+
+        AppLogger.shared.log("Launching mcp-lyria binary at: \(binaryPath)", category: "MCP")
 
         let p = Process()
         p.executableURL = URL(fileURLWithPath: binaryPath)
@@ -48,7 +52,8 @@ public actor MCPClient {
         serr.fileHandleForReading.readabilityHandler = { h in
             let data = h.availableData
             if !data.isEmpty, let msg = String(data: data, encoding: .utf8) {
-                print("[mcp-lyria stderr] \(msg.trimmingCharacters(in: .whitespacesAndNewlines))")
+                let trimmed = msg.trimmingCharacters(in: .whitespacesAndNewlines)
+                AppLogger.shared.log(trimmed, category: "MCP-STDERR")
             }
         }
 
@@ -64,6 +69,7 @@ public actor MCPClient {
 
         try p.run()
         self.isRunning = true
+        AppLogger.shared.log("mcp-lyria-go process started (PID: \(p.processIdentifier))", category: "MCP")
     }
 
     public func stop() {
@@ -72,6 +78,7 @@ public actor MCPClient {
         stderrPipe?.fileHandleForReading.readabilityHandler = nil
         if let p = process, p.isRunning {
             p.terminate()
+            AppLogger.shared.log("mcp-lyria-go process terminated", category: "MCP")
         }
         process = nil
         stdinPipe = nil
@@ -188,6 +195,7 @@ public actor MCPClient {
             }
         }
 
+        AppLogger.shared.log("Lyria MCP initialized: \(serverInfo.name) v\(serverInfo.version ?? ""), tools: \(toolsList.map(\.name))", category: "MCP")
         return (serverInfo, toolsList)
     }
 
@@ -212,6 +220,8 @@ public actor MCPClient {
             args["seed"] = s
         }
 
+        AppLogger.shared.log("Calling lyria_generate_music with prompt: \"\(prompt.prefix(60))...\", model: \(modelId), file: \(fileName)", category: "MCP")
+
         let response = try await sendRequest(
             method: "tools/call",
             params: [
@@ -222,10 +232,12 @@ public actor MCPClient {
 
         if let errorObj = response["error"] as? [String: Any] {
             let msg = errorObj["message"] as? String ?? "Unknown MCP Error"
+            AppLogger.shared.error("MCP RPC error: \(msg)", category: "MCP")
             throw NSError(domain: "MCPClient", code: 3, userInfo: [NSLocalizedDescriptionKey: msg])
         }
 
         guard let result = response["result"] as? [String: Any] else {
+            AppLogger.shared.error("Invalid tool response format: \(response)", category: "MCP")
             throw NSError(domain: "MCPClient", code: 4, userInfo: [NSLocalizedDescriptionKey: "Invalid tool response format"])
         }
 
@@ -236,6 +248,7 @@ public actor MCPClient {
                let text = first["text"] as? String {
                 errorDetails = text
             }
+            AppLogger.shared.error("Lyria generation failed: \(errorDetails)", category: "MCP")
             throw NSError(domain: "MCPClient", code: 5, userInfo: [NSLocalizedDescriptionKey: errorDetails])
         }
 
@@ -245,8 +258,56 @@ public actor MCPClient {
            let text = first["text"] as? String {
             message = text
         }
+        AppLogger.shared.log("Tool response: \(message)", category: "MCP")
 
+        // Robustly locate generated file on disk
+        let fm = FileManager.default
         let expectedURL = localDir.appendingPathComponent(fileName)
-        return (expectedURL, message)
+        let baseName = (fileName as NSString).deletingPathExtension
+
+        // Candidate 1: expected URL
+        // Candidate 2: baseName.wav (in case mcp-lyria forced .wav)
+        // Candidate 3: path extracted from tool message
+        var candidateURLs: [URL] = [
+            expectedURL,
+            localDir.appendingPathComponent("\(baseName).wav"),
+            localDir.appendingPathComponent("\(baseName).mp3")
+        ]
+
+        if let range = message.range(of: "Successfully saved audio locally to ") {
+            let pathPart = String(message[range.upperBound...]).trimmingCharacters(in: CharacterSet(charactersIn: ". \n\r\t"))
+            if !pathPart.isEmpty {
+                candidateURLs.insert(URL(fileURLWithPath: pathPart), at: 0)
+            }
+        }
+
+        for candidate in candidateURLs {
+            if fm.fileExists(atPath: candidate.path) {
+                // If candidate exists, check format and normalize if mcp-lyria wrote an MP3 as .wav
+                let detected = AudioFormatDetector.detectFormat(for: candidate)
+                AppLogger.shared.log("Found audio file at \(candidate.path), detected format: \(detected.displayName)", category: "AUDIO")
+
+                if detected == .mp3 && candidate.pathExtension.lowercased() == "wav" && fileName.hasSuffix(".mp3") {
+                    // Normalize filename to .mp3 so container matches extension
+                    let targetMP3URL = localDir.appendingPathComponent(fileName)
+                    try? fm.removeItem(at: targetMP3URL)
+                    do {
+                        try fm.moveItem(at: candidate, to: targetMP3URL)
+                        AppLogger.shared.log("Renamed \(candidate.lastPathComponent) -> \(targetMP3URL.lastPathComponent) (native MP3 container)", category: "AUDIO")
+                        return (targetMP3URL, message)
+                    } catch {
+                        AppLogger.shared.warning("Could not rename to .mp3, using \(candidate.path): \(error)", category: "AUDIO")
+                        return (candidate, message)
+                    }
+                }
+                return (candidate, message)
+            }
+        }
+
+        // If not found in any candidate location, log directory contents and error
+        let dirContents = (try? fm.contentsOfDirectory(atPath: localDir.path)) ?? []
+        let errorMsg = "Audio file not found at \(expectedURL.path) after generation. Directory contents: \(dirContents.prefix(10))"
+        AppLogger.shared.error(errorMsg, category: "MCP")
+        throw NSError(domain: "MCPClient", code: 6, userInfo: [NSLocalizedDescriptionKey: errorMsg])
     }
 }

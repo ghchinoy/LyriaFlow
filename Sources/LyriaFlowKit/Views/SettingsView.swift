@@ -8,6 +8,7 @@ public struct SettingsView: View {
     @State private var testingServer: Bool = false
     @State private var serverTestResult: String? = nil
     @State private var serverTestSuccess: Bool = false
+    @State private var showingLogsCopied: Bool = false
 
     public init(settings: AppSettings, coordinator: PlaybackCoordinator) {
         self.settings = settings
@@ -122,11 +123,44 @@ public struct SettingsView: View {
                         }
                     }
                 }
+
+                Divider()
+                    .padding(.vertical, 8)
+
+                // Section: Diagnostics & Logs
+                Section(header: Text("Diagnostics & Logs").font(.subheadline.weight(.bold))) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text(AppLogger.shared.logFileURL.path)
+                                .font(.caption2.monospaced())
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+
+                            Spacer()
+
+                            Button("Reveal Log") {
+                                AppLogger.shared.revealLogInFinder()
+                            }
+                            .controlSize(.small)
+
+                            Button(showingLogsCopied ? "Copied!" : "Copy Recent Logs") {
+                                let logs = AppLogger.shared.getRecentLogs()
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(logs, forType: .string)
+                                showingLogsCopied = true
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                    showingLogsCopied = false
+                                }
+                            }
+                            .controlSize(.small)
+                        }
+                    }
+                }
             }
             .padding(20)
         }
         .background(.ultraThinMaterial)
-        .frame(width: 520, height: 480)
+        .frame(width: 540, height: 540)
     }
 
     private func testMcpServer() {

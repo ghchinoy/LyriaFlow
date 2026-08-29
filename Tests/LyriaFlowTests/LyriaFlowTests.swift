@@ -595,4 +595,15 @@ final class LyriaFlowTests: XCTestCase {
         XCTAssertEqual(decoded.status, .ready)
         XCTAssertEqual(decoded.suggestions, originalSuggestions)
     }
+
+    func testAppLoggerLoggingAndRetrieval() {
+        let logger = AppLogger.shared
+        logger.log("Test log entry for verification", category: "UNIT_TEST")
+        logger.error("Test error entry", category: "UNIT_TEST")
+
+        let logs = logger.getRecentLogs(maxLines: 20)
+        XCTAssertTrue(logs.contains("Test log entry for verification"))
+        XCTAssertTrue(logs.contains("Test error entry"))
+        XCTAssertTrue(logs.contains("[UNIT_TEST]"))
+    }
 }
