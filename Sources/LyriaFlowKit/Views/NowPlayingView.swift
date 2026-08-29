@@ -9,69 +9,56 @@ public struct NowPlayingView: View {
 
     public var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
+            VStack(spacing: 24) {
                 // Error Alert Banner if any
                 if let error = coordinator.errorMessage {
-                    HStack {
+                    HStack(spacing: 10) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundColor(.orange)
+                            .font(.subheadline)
                         Text(error)
-                            .font(.system(size: 12))
+                            .font(.subheadline)
                             .foregroundColor(.primary)
                         Spacer()
                         Button(action: { coordinator.errorMessage = nil }) {
                             Image(systemName: "xmark")
-                                .font(.system(size: 11))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                         }
                         .buttonStyle(.plain)
                     }
-                    .padding(10)
-                    .background(Color.orange.opacity(0.15))
-                    .cornerRadius(8)
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.orange.opacity(0.35), lineWidth: 1)
+                    )
+                    .padding(.horizontal, 24)
                 }
 
                 if let currentTrack = coordinator.currentTrack {
-                    // Centerpiece Vinyl & Visualizer
-                    VStack(spacing: 16) {
-                        ZStack {
-                            // Subtle ambient glow
-                            Circle()
-                                .fill(
-                                    RadialGradient(
-                                        colors: [Color.purple.opacity(0.35), Color.clear],
-                                        center: .center,
-                                        startRadius: 20,
-                                        endRadius: 90
-                                    )
-                                )
-                                .frame(width: 180, height: 180)
-
-                            // Vinyl Record Disc
-                            VinylRecordView(isPlaying: coordinator.audioEngine.isPlaying)
-                                .frame(width: 140, height: 140)
-                        }
-                        .padding(.top, 10)
-
-                        // Real-time audio waveform bars
+                    // Centerpiece 32-Bar Audio-Reactive Spectrum Visualizer
+                    VStack(spacing: 20) {
                         WaveformVisualizerView(
                             powerLevels: coordinator.audioEngine.powerLevels,
                             isPlaying: coordinator.audioEngine.isPlaying
                         )
 
                         // Track Metadata & Prompt Banner
-                        VStack(spacing: 8) {
+                        VStack(spacing: 10) {
                             HStack(spacing: 8) {
                                 Text(cleanModelName(currentTrack.modelId))
-                                    .font(.system(size: 10, weight: .bold))
+                                    .font(.caption2.weight(.bold))
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 3)
-                                    .background(Color.purple.opacity(0.2))
+                                    .background(Color.purple.opacity(0.18))
                                     .foregroundColor(.purple)
-                                    .cornerRadius(6)
+                                    .clipShape(Capsule())
 
                                 Text(formattedDate(currentTrack.createdAt))
-                                    .font(.system(size: 11))
+                                    .font(.caption)
                                     .foregroundColor(.secondary)
 
                                 Spacer()
@@ -81,49 +68,53 @@ public struct NowPlayingView: View {
                                 }) {
                                     Image(systemName: currentTrack.isFavorite ? "heart.fill" : "heart")
                                         .foregroundColor(currentTrack.isFavorite ? .red : .secondary)
-                                        .font(.system(size: 14))
+                                        .font(.subheadline)
                                 }
                                 .buttonStyle(.plain)
                                 .help("Favorite Track")
+                                .accessibilityLabel(currentTrack.isFavorite ? "Unfavorite track" : "Favorite track")
 
                                 Button(action: {
                                     coordinator.revealInFinder(currentTrack)
                                 }) {
                                     Image(systemName: "folder")
                                         .foregroundColor(.secondary)
-                                        .font(.system(size: 14))
+                                        .font(.subheadline)
                                 }
                                 .buttonStyle(.plain)
                                 .help("Reveal in Finder")
+                                .accessibilityLabel("Reveal in Finder")
                             }
                             .frame(maxWidth: 620)
 
                             Text(currentTrack.prompt)
-                                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                .font(.title2.weight(.semibold))
                                 .foregroundColor(.primary)
                                 .multilineTextAlignment(.center)
+                                .textSelection(.enabled)
                                 .lineLimit(3)
                                 .frame(maxWidth: 620)
                         }
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 8)
 
                     Divider()
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, 24)
 
                     // Gemini Suggestions Section
                     SuggestionCardsView(coordinator: coordinator)
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, 24)
 
                     // Embedded Up Next Queue Strip if queue is non-empty
                     if !coordinator.queue.isEmpty {
                         Divider()
-                            .padding(.horizontal, 20)
+                            .padding(.horizontal, 24)
 
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
                                 Label("Up Next Playlist (\(coordinator.queue.count))", systemImage: "list.bullet.indent")
-                                    .font(.system(size: 13, weight: .bold))
+                                    .font(.headline)
                                     .foregroundColor(.primary)
 
                                 Spacer()
@@ -131,30 +122,30 @@ public struct NowPlayingView: View {
                                 Button("Clear Queue") {
                                     coordinator.clearQueue()
                                 }
-                                .font(.caption)
+                                .font(.subheadline)
                                 .foregroundColor(.secondary)
                                 .buttonStyle(.plain)
                             }
 
                             ForEach(Array(coordinator.queue.prefix(3).enumerated()), id: \.element.id) { index, item in
-                                HStack(spacing: 8) {
+                                HStack(spacing: 10) {
                                     Text("#\(index + 1)")
-                                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                        .font(.caption.monospacedDigit().weight(.bold))
                                         .foregroundColor(.secondary)
-                                        .frame(width: 22)
+                                        .frame(width: 24)
 
                                     if let origin = item.origin {
                                         Text(origin)
-                                            .font(.system(size: 9, weight: .semibold))
-                                            .padding(.horizontal, 5)
-                                            .padding(.vertical, 1.5)
-                                            .background(Color.purple.opacity(0.15))
+                                            .font(.caption2.weight(.semibold))
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(Color.purple.opacity(0.18))
                                             .foregroundColor(.purple)
-                                            .cornerRadius(4)
+                                            .clipShape(Capsule())
                                     }
 
                                     Text(item.prompt)
-                                        .font(.system(size: 11))
+                                        .font(.subheadline)
                                         .foregroundColor(.primary)
                                         .lineLimit(1)
 
@@ -163,22 +154,22 @@ public struct NowPlayingView: View {
                                     switch item.status {
                                     case .ready:
                                         Text("⚡️ Ready")
-                                            .font(.system(size: 9, weight: .bold))
+                                            .font(.caption.weight(.bold))
                                             .foregroundColor(.green)
                                     case .generating:
-                                        HStack(spacing: 3) {
-                                            ProgressView().scaleEffect(0.4).frame(width: 8, height: 8)
+                                        HStack(spacing: 4) {
+                                            ProgressView().scaleEffect(0.5).frame(width: 10, height: 10)
                                             Text("Generating...")
                                         }
-                                        .font(.system(size: 9))
+                                        .font(.caption)
                                         .foregroundColor(.orange)
                                     case .queued:
                                         Text("Queued")
-                                            .font(.system(size: 9))
+                                            .font(.caption)
                                             .foregroundColor(.secondary)
                                     case .failed:
                                         Text("Failed")
-                                            .font(.system(size: 9))
+                                            .font(.caption)
                                             .foregroundColor(.red)
                                     }
 
@@ -186,64 +177,70 @@ public struct NowPlayingView: View {
                                         coordinator.playQueueItemNow(id: item.id)
                                     }) {
                                         Image(systemName: "play.fill")
-                                            .font(.system(size: 8))
+                                            .font(.caption.weight(.bold))
                                             .foregroundColor(.purple)
                                     }
                                     .buttonStyle(.plain)
                                     .help("Play Now")
+                                    .accessibilityLabel("Play \(item.prompt) now")
 
                                     Button(action: {
                                         coordinator.removeFromQueue(id: item.id)
                                     }) {
                                         Image(systemName: "xmark")
-                                            .font(.system(size: 8))
+                                            .font(.caption)
                                             .foregroundColor(.secondary)
                                     }
                                     .buttonStyle(.plain)
                                     .help("Remove")
+                                    .accessibilityLabel("Remove \(item.prompt) from queue")
                                 }
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(Color(nsColor: .controlBackgroundColor).opacity(0.4))
-                                .cornerRadius(8)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(.ultraThinMaterial)
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                                )
                             }
                         }
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, 24)
                     }
 
                 } else {
                     // Empty state
-                    VStack(spacing: 16) {
-                        Spacer(minLength: 40)
+                    VStack(spacing: 20) {
+                        Spacer(minLength: 50)
 
                         ZStack {
                             Circle()
-                                .fill(Color.purple.opacity(0.1))
-                                .frame(width: 120, height: 120)
+                                .fill(Color.purple.opacity(0.12))
+                                .frame(width: 110, height: 110)
 
-                            Image(systemName: "waveform.and.person.filled")
-                                .font(.system(size: 48))
-                                .foregroundColor(.purple.opacity(0.7))
+                            Image(systemName: "music.note.waveform")
+                                .font(.system(size: 46))
+                                .foregroundColor(.purple.opacity(0.85))
                         }
 
-                        VStack(spacing: 6) {
+                        VStack(spacing: 8) {
                             Text("Welcome to LyriaFlow")
-                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                                .font(.title2.weight(.bold))
                                 .foregroundColor(.primary)
 
                             Text("Enter a musical prompt below or choose an inspiration chip to generate your first track using Lyria AI.")
-                                .font(.system(size: 13))
+                                .font(.subheadline)
                                 .foregroundColor(.secondary)
                                 .multilineTextAlignment(.center)
-                                .frame(maxWidth: 420)
+                                .frame(maxWidth: 440)
                         }
 
-                        Spacer(minLength: 40)
+                        Spacer(minLength: 50)
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 24)
                 }
             }
-            .padding(.vertical, 16)
+            .padding(.vertical, 20)
         }
     }
 
@@ -260,70 +257,5 @@ public struct NowPlayingView: View {
         formatter.dateStyle = .none
         formatter.timeStyle = .short
         return formatter.string(from: date)
-    }
-}
-
-struct VinylRecordView: View {
-    let isPlaying: Bool
-    @State private var rotation: Double = 0
-
-    var body: some View {
-        ZStack {
-            // Vinyl outer ring
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [Color.black, Color(white: 0.15), Color.black],
-                        center: .center,
-                        startRadius: 10,
-                        endRadius: 70
-                    )
-                )
-                .overlay(
-                    Circle()
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                )
-                .shadow(color: Color.black.opacity(0.4), radius: 10, x: 0, y: 4)
-
-            // Grooves
-            ForEach(1..<5) { idx in
-                Circle()
-                    .stroke(Color.white.opacity(0.04), lineWidth: 1)
-                    .frame(width: CGFloat(idx * 24), height: CGFloat(idx * 24))
-            }
-
-            // Center Label
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [.purple, .indigo],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: 48, height: 48)
-
-            // Center Spindle Hole
-            Circle()
-                .fill(Color(nsColor: .windowBackgroundColor))
-                .frame(width: 12, height: 12)
-        }
-        .rotationEffect(.degrees(rotation))
-        .onAppear {
-            setupRotation()
-        }
-        .onChange(of: isPlaying) { _, playing in
-            if playing {
-                setupRotation()
-            }
-        }
-    }
-
-    private func setupRotation() {
-        Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { _ in
-            if isPlaying {
-                rotation = (rotation + 1.2).truncatingRemainder(dividingBy: 360)
-            }
-        }
     }
 }

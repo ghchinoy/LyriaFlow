@@ -19,24 +19,28 @@ public struct SettingsView: View {
             // Header
             HStack {
                 Text("LyriaFlow Settings")
-                    .font(.headline)
+                    .font(.headline.weight(.bold))
                 Spacer()
                 Button("Done") {
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .accessibilityLabel("Done, close settings")
             }
             .padding(16)
-            .background(Color(nsColor: .windowBackgroundColor))
+            .background(.ultraThinMaterial)
 
             Divider()
 
             Form {
                 // Section: Gemini AI Suggestions
-                Section(header: Text("Gemini Next-Track Suggestions").font(.subheadline).bold()) {
+                Section(header: Text("Gemini Next-Track Suggestions").font(.subheadline.weight(.bold))) {
                     VStack(alignment: .leading, spacing: 6) {
                         SecureField("Gemini API Key (Google AI Studio)", text: $settings.storedGeminiApiKey)
                             .textFieldStyle(.roundedBorder)
+                            .accessibilityLabel("Gemini API Key input")
 
                         if !settings.storedGeminiApiKey.isEmpty {
                             Text("Using custom user-configured API key.")
@@ -64,7 +68,7 @@ public struct SettingsView: View {
                     .padding(.vertical, 8)
 
                 // Section: Lyria MCP Server
-                Section(header: Text("Lyria MCP Server (mcp-genmedia)").font(.subheadline).bold()) {
+                Section(header: Text("Lyria MCP Server (mcp-genmedia)").font(.subheadline.weight(.bold))) {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
                             TextField("Binary Path", text: $settings.customMcpBinaryPath, prompt: Text(settings.effectiveMcpBinaryPath))
@@ -102,11 +106,11 @@ public struct SettingsView: View {
                     .padding(.vertical, 8)
 
                 // Section: Local Audio Storage
-                Section(header: Text("Audio Tracks Persistence").font(.subheadline).bold()) {
+                Section(header: Text("Audio Tracks Persistence").font(.subheadline.weight(.bold))) {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(settings.tracksDirectory.path)
-                                .font(.system(size: 11, design: .monospaced))
+                                .font(.caption.monospaced())
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
                         }
@@ -121,6 +125,7 @@ public struct SettingsView: View {
             }
             .padding(20)
         }
+        .background(.ultraThinMaterial)
         .frame(width: 520, height: 480)
     }
 

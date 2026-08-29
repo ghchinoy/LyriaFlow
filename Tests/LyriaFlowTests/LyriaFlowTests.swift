@@ -100,4 +100,166 @@ final class LyriaFlowTests: XCTestCase {
         XCTAssertTrue(AppSettings.availableGeminiModels.contains("gemini-2.5-flash"))
         XCTAssertTrue(AppSettings.availableGeminiModels.contains("gemini-3.7-flash"))
     }
+
+    @MainActor
+    func testAudioEngine32BarSpectrumInitializationAndRestingBaseline() {
+        let engine = AudioEngine()
+        XCTAssertEqual(AudioEngine.barCount, 32)
+        XCTAssertEqual(engine.powerLevels.count, 32)
+        for level in engine.powerLevels {
+            XCTAssertEqual(level, 0.04, accuracy: 0.001)
+        }
+
+        // Test Pause and Stop reset to resting baseline
+        engine.pause()
+        XCTAssertEqual(engine.powerLevels.count, 32)
+        for level in engine.powerLevels {
+            XCTAssertEqual(level, 0.04, accuracy: 0.001)
+        }
+
+        engine.stop()
+        XCTAssertEqual(engine.powerLevels.count, 32)
+        for level in engine.powerLevels {
+            XCTAssertEqual(level, 0.04, accuracy: 0.001)
+        }
+    }
+
+    @MainActor
+    func testWaveformVisualizerViewInitialization() {
+        let levels = Array(repeating: Float(0.04), count: 32)
+        let visualizer = WaveformVisualizerView(powerLevels: levels, isPlaying: false)
+        XCTAssertEqual(visualizer.powerLevels.count, 32)
+        XCTAssertFalse(visualizer.isPlaying)
+    }
+
+    @MainActor
+    func testWaveformVisualizerSafeBoundsHandling() {
+        // Empty array
+        let emptyVisualizer = WaveformVisualizerView(powerLevels: [], isPlaying: true)
+        XCTAssertEqual(emptyVisualizer.powerLevels.count, 0)
+        XCTAssertTrue(emptyVisualizer.isPlaying)
+
+        // Non-standard count array (e.g. 16 or 64)
+        let customVisualizer = WaveformVisualizerView(powerLevels: Array(repeating: Float(0.5), count: 16), isPlaying: true)
+        XCTAssertEqual(customVisualizer.powerLevels.count, 16)
+        XCTAssertTrue(customVisualizer.isPlaying)
+    }
+
+    @MainActor
+    func testAudioEngineVolumeAndLoopProperties() {
+        let engine = AudioEngine()
+        engine.volume = 0.5
+        XCTAssertEqual(engine.volume, 0.5, accuracy: 0.001)
+
+        engine.isLooping = true
+        XCTAssertTrue(engine.isLooping)
+
+        engine.isLooping = false
+        XCTAssertFalse(engine.isLooping)
+    }
+
+    @MainActor
+    func testAudioEngineSeekBounds() {
+        let engine = AudioEngine()
+        // Seeking with no loaded player should not crash
+        engine.seek(to: 10.0)
+        XCTAssertEqual(engine.currentTime, 0)
+
+        // Seeking with NaN should safely no-op
+        engine.seek(to: Double.nan)
+        XCTAssertEqual(engine.currentTime, 0)
+
+        // Seeking with negative value
+        engine.seek(to: -5.0)
+        XCTAssertEqual(engine.currentTime, 0)
+    }
+
+    @MainActor
+    func testAudioEngineTogglePlayPauseWhenEmpty() {
+        let engine = AudioEngine()
+        // When no track is loaded, togglePlayPause should safely no-op
+        engine.togglePlayPause()
+        XCTAssertFalse(engine.isPlaying)
+        XCTAssertEqual(engine.powerLevels.count, 32)
+    }
+
+    @MainActor
+    func testPlaybackCoordinatorQueueManipulation() {
+        let coordinator = PlaybackCoordinator()
+        coordinator.clearQueue()
+        XCTAssertEqual(coordinator.queue.count, 0)
+
+        coordinator.addToQueue(prompt: "Queue Item 1", origin: "Similar")
+        coordinator.addToQueue(prompt: "Queue Item 2", origin: "Fun")
+        coordinator.addToQueue(prompt: "Queue Item 3", origin: "Wild")
+        XCTAssertEqual(coordinator.queue.count, 3)
+        XCTAssertEqual(coordinator.queue[0].prompt, "Queue Item 1")
+        XCTAssertEqual(coordinator.queue[1].prompt, "Queue Item 2")
+        XCTAssertEqual(coordinator.queue[2].prompt, "Queue Item 3")
+
+        // Test playNext insert at index 0
+        coordinator.addToQueue(prompt: "Urgent Item", origin: "Manual", playNext: true)
+        XCTAssertEqual(coordinator.queue.count, 4)
+        XCTAssertEqual(coordinator.queue[0].prompt, "Urgent Item")
+
+        // Test Move Up / Down
+        let idToMove = coordinator.queue[2].id
+        coordinator.moveQueueItemUp(id: idToMove)
+        XCTAssertEqual(coordinator.queue[1].id, idToMove)
+
+        coordinator.moveQueueItemDown(id: idToMove)
+        XCTAssertEqual(coordinator.queue[2].id, idToMove)
+
+        // Test Move with IndexSet
+        coordinator.moveQueueItem(from: IndexSet(integer: 0), to: 3)
+        XCTAssertEqual(coordinator.queue.count, 4)
+
+        // Test Remove
+        coordinator.removeFromQueue(id: idToMove)
+        XCTAssertEqual(coordinator.queue.count, 3)
+
+        // Test Clear
+        coordinator.clearQueue()
+        XCTAssertEqual(coordinator.queue.count, 0)
+    }
+
+    func testSuggestionTypeIconsAndProperties() {
+        XCTAssertEqual(SuggestionType.similar.iconName, "waveform.badge.magnifyingglass")
+        XCTAssertEqual(SuggestionType.fun.iconName, "sparkles")
+        XCTAssertEqual(SuggestionType.wild.iconName, "flame.fill")
+
+        XCTAssertEqual(SuggestionType.similar.subtitle, "Vibe continuation")
+        XCTAssertEqual(SuggestionType.fun.subtitle, "Playful mutation")
+        XCTAssertEqual(SuggestionType.wild.subtitle, "Genre-bending shift")
+    }
+
+    func testQueueItemStatusEnumProperties() {
+        let queued = QueueItemStatus.queued
+        XCTAssertFalse(queued.isReady)
+        XCTAssertFalse(queued.isGenerating)
+
+        let generating = QueueItemStatus.generating
+        XCTAssertFalse(generating.isReady)
+        XCTAssertTrue(generating.isGenerating)
+
+        let ready = QueueItemStatus.ready(fileURL: URL(fileURLWithPath: "/tmp/sample.wav"), duration: 30.0)
+        XCTAssertTrue(ready.isReady)
+        XCTAssertFalse(ready.isGenerating)
+
+        let failed = QueueItemStatus.failed("Network error")
+        XCTAssertFalse(failed.isReady)
+        XCTAssertFalse(failed.isGenerating)
+    }
+
+    func testPersistenceStoreURLConstruction() {
+        let store = PersistenceStore.shared
+        let track = Track(
+            prompt: "Test Persistence",
+            modelId: "lyria-3-clip-preview",
+            audioFileName: "sample_track.wav"
+        )
+        let url = store.audioFileURL(for: track)
+        XCTAssertEqual(url.lastPathComponent, "sample_track.wav")
+        XCTAssertTrue(url.path.contains("LyriaFlow/Tracks"))
+    }
 }

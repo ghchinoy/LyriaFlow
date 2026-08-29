@@ -26,7 +26,6 @@ struct LyriaFlowApp: App {
     var body: some Scene {
         WindowGroup("LyriaFlow") {
             MainSplitView(coordinator: coordinator)
-                .preferredColorScheme(.dark)
                 .frame(minWidth: 850, minHeight: 600)
         }
         .windowStyle(.titleBar)
@@ -38,7 +37,6 @@ struct LyriaFlowApp: App {
         #if os(macOS)
         Settings {
             SettingsView(settings: coordinator.settings, coordinator: coordinator)
-                .preferredColorScheme(.dark)
         }
         #endif
     }

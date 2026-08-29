@@ -8,7 +8,7 @@ public struct SuggestionCardsView: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Label("Gemini Next-Track Suggestions", systemImage: "sparkles")
                     .font(.headline)
@@ -18,7 +18,7 @@ public struct SuggestionCardsView: View {
 
                 if coordinator.isLoadingSuggestions {
                     ProgressView()
-                        .scaleEffect(0.7)
+                        .scaleEffect(0.6)
                     Text("Asking Gemini...")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -33,11 +33,15 @@ public struct SuggestionCardsView: View {
                 HStack(spacing: 12) {
                     ForEach(0..<3, id: \.self) { _ in
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(nsColor: .windowBackgroundColor).opacity(0.6))
-                            .frame(height: 125)
+                            .fill(.ultraThinMaterial)
+                            .frame(height: 130)
                             .overlay(
                                 ProgressView()
                                     .scaleEffect(0.8)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.primary.opacity(0.06), lineWidth: 1)
                             )
                     }
                 }
@@ -106,9 +110,11 @@ public struct SuggestionCardsView: View {
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 24)
-                    .background(
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .overlay(
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(nsColor: .controlBackgroundColor).opacity(0.3))
+                            .stroke(Color.primary.opacity(0.06), lineWidth: 1)
                     )
             }
         }
@@ -133,10 +139,10 @@ struct SuggestionCard: View {
             HStack(spacing: 6) {
                 Image(systemName: type.iconName)
                     .foregroundColor(accentColor)
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.subheadline.weight(.bold))
 
                 Text(type.rawValue)
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.subheadline.weight(.bold))
                     .foregroundColor(.primary)
 
                 Spacer()
@@ -147,12 +153,12 @@ struct SuggestionCard: View {
                             Image(systemName: "bolt.fill")
                             Text("Ready #\(idx + 1)")
                         }
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.caption2.weight(.bold))
                         .foregroundColor(.green)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.green.opacity(0.15))
-                        .cornerRadius(6)
+                        .background(Color.green.opacity(0.18))
+                        .clipShape(Capsule())
                     } else if let status = queueStatus, case .generating = status {
                         HStack(spacing: 3) {
                             ProgressView()
@@ -160,29 +166,29 @@ struct SuggestionCard: View {
                                 .frame(width: 8, height: 8)
                             Text("Generating #\(idx + 1)")
                         }
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.caption2.weight(.semibold))
                         .foregroundColor(.orange)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.orange.opacity(0.15))
-                        .cornerRadius(6)
+                        .background(Color.orange.opacity(0.18))
+                        .clipShape(Capsule())
                     } else {
                         HStack(spacing: 3) {
                             Image(systemName: "list.number")
                             Text("Queued #\(idx + 1)")
                         }
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.caption2.weight(.semibold))
                         .foregroundColor(.purple)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.purple.opacity(0.15))
-                        .cornerRadius(6)
+                        .background(Color.purple.opacity(0.18))
+                        .clipShape(Capsule())
                     }
                 }
             }
 
             Text(prompt)
-                .font(.system(size: 12))
+                .font(.caption)
                 .foregroundColor(.secondary)
                 .lineLimit(3)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -195,36 +201,37 @@ struct SuggestionCard: View {
                         Image(systemName: "play.fill")
                         Text("Play Now")
                     }
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.caption.weight(.semibold))
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(accentColor.opacity(0.85))
+                .tint(accentColor.opacity(0.9))
                 .controlSize(.small)
+                .accessibilityLabel("Play \(type.rawValue) suggestion now")
 
                 Button(action: onQueue) {
                     HStack(spacing: 4) {
                         Image(systemName: isQueued ? "checkmark" : "plus")
                         Text(isQueued ? "Add Again" : "Queue")
                     }
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.caption.weight(.medium))
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+                .accessibilityLabel(isQueued ? "Add \(type.rawValue) suggestion again" : "Queue \(type.rawValue) suggestion")
             }
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, minHeight: 125, alignment: .topLeading)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(nsColor: .controlBackgroundColor).opacity(isHovered ? 0.8 : 0.5))
-        )
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 130, alignment: .topLeading)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
                 .stroke(
-                    isQueued ? Color.purple.opacity(0.6) : (isHovered ? accentColor.opacity(0.5) : Color.white.opacity(0.08)),
+                    isQueued ? Color.purple.opacity(0.6) : (isHovered ? accentColor.opacity(0.5) : Color.primary.opacity(0.08)),
                     lineWidth: isQueued || isHovered ? 1.5 : 1
                 )
         )
+        .shadow(color: Color.black.opacity(isHovered ? 0.12 : 0.04), radius: 6, x: 0, y: 2)
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.15)) {
                 isHovered = hovering

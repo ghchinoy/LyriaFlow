@@ -14,47 +14,48 @@ public struct UpNextQueueView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "list.bullet.indent")
                         .foregroundColor(.purple)
+                        .font(.subheadline.weight(.semibold))
                     Text("Up Next Queue")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.subheadline.weight(.bold))
                 }
 
                 Spacer()
 
                 if !coordinator.queue.isEmpty {
                     Text("\(coordinator.queue.count) track\(coordinator.queue.count == 1 ? "" : "s")")
-                        .font(.system(size: 11))
+                        .font(.caption)
                         .foregroundColor(.secondary)
 
                     Button(action: { coordinator.clearQueue() }) {
                         Text("Clear")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.caption.weight(.medium))
                             .foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
                     .help("Clear Queue")
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color(nsColor: .controlBackgroundColor).opacity(0.4))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(.ultraThinMaterial)
 
             Divider()
 
             if coordinator.queue.isEmpty {
-                VStack(spacing: 10) {
+                VStack(spacing: 12) {
                     Spacer()
                     Image(systemName: "music.note.list")
-                        .font(.system(size: 28))
+                        .font(.system(size: 32))
                         .foregroundColor(.secondary.opacity(0.4))
 
                     Text("Queue is empty")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.subheadline.weight(.semibold))
                         .foregroundColor(.secondary)
 
                     Text(coordinator.settings.autoPlayEnabled
                          ? "Auto-Play is ON: Gemini suggestions will automatically queue and pre-generate."
                          : "Click 'Queue' on any Gemini suggestion or inspiration chip to line up tracks.")
-                        .font(.system(size: 11))
+                        .font(.caption)
                         .foregroundColor(.secondary.opacity(0.8))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 16)
@@ -103,41 +104,42 @@ struct QueuedTrackRow: View {
             Button(action: onPlayNow) {
                 ZStack {
                     Circle()
-                        .fill(Color.purple.opacity(0.2))
-                        .frame(width: 22, height: 22)
+                        .fill(Color.purple.opacity(0.18))
+                        .frame(width: 24, height: 24)
 
                     if isHovered {
                         Image(systemName: "play.fill")
-                            .font(.system(size: 8, weight: .bold))
+                            .font(.caption2.weight(.bold))
                             .foregroundColor(.purple)
                     } else {
                         Text("\(index + 1)")
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .font(.caption2.monospacedDigit().weight(.bold))
                             .foregroundColor(.secondary)
                     }
                 }
             }
             .buttonStyle(.plain)
             .help("Play Now")
+            .accessibilityLabel("Play \(item.prompt) now")
 
             // Content
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 4) {
                     if let origin = item.origin {
                         Text(origin)
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.caption2.weight(.semibold))
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1.5)
-                            .background(Color.purple.opacity(0.15))
+                            .background(Color.purple.opacity(0.18))
                             .foregroundColor(.purple)
-                            .cornerRadius(4)
+                            .clipShape(Capsule())
                     }
 
                     statusBadge
                 }
 
                 Text(item.prompt)
-                    .font(.system(size: 11))
+                    .font(.subheadline)
                     .foregroundColor(.primary)
                     .lineLimit(2)
             }
@@ -146,42 +148,45 @@ struct QueuedTrackRow: View {
 
             // Reorder & Remove Controls on hover
             if isHovered {
-                HStack(spacing: 2) {
+                HStack(spacing: 4) {
                     if index > 0 {
                         Button(action: onMoveUp) {
                             Image(systemName: "chevron.up")
-                                .font(.system(size: 9))
+                                .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
                         .buttonStyle(.plain)
                         .help("Move Up")
+                        .accessibilityLabel("Move \(item.prompt) up")
                     }
 
                     if index < totalCount - 1 {
                         Button(action: onMoveDown) {
                             Image(systemName: "chevron.down")
-                                .font(.system(size: 9))
+                                .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
                         .buttonStyle(.plain)
                         .help("Move Down")
+                        .accessibilityLabel("Move \(item.prompt) down")
                     }
 
                     Button(action: onRemove) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 9))
+                            .font(.caption2)
                             .foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
                     .help("Remove from Queue")
+                    .accessibilityLabel("Remove \(item.prompt) from queue")
                 }
             }
         }
-        .padding(.vertical, 5)
-        .padding(.horizontal, 6)
+        .padding(.vertical, 6)
+        .padding(.horizontal, 8)
         .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(isHovered ? Color.white.opacity(0.04) : Color.clear)
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isHovered ? Color.primary.opacity(0.04) : Color.clear)
         )
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
@@ -206,12 +211,12 @@ struct QueuedTrackRow: View {
                 Image(systemName: "bolt.fill")
                 Text("Ready")
             }
-            .font(.system(size: 9, weight: .bold))
+            .font(.caption2.weight(.bold))
             .foregroundColor(.green)
-            .padding(.horizontal, 4)
+            .padding(.horizontal, 5)
             .padding(.vertical, 1.5)
-            .background(Color.green.opacity(0.15))
-            .cornerRadius(4)
+            .background(Color.green.opacity(0.18))
+            .clipShape(Capsule())
         case .generating:
             HStack(spacing: 3) {
                 ProgressView()
@@ -219,28 +224,28 @@ struct QueuedTrackRow: View {
                     .frame(width: 8, height: 8)
                 Text("Generating...")
             }
-            .font(.system(size: 9, weight: .semibold))
+            .font(.caption2.weight(.semibold))
             .foregroundColor(.orange)
-            .padding(.horizontal, 4)
+            .padding(.horizontal, 5)
             .padding(.vertical, 1.5)
-            .background(Color.orange.opacity(0.15))
-            .cornerRadius(4)
+            .background(Color.orange.opacity(0.18))
+            .clipShape(Capsule())
         case .queued:
             Text("Queued")
-                .font(.system(size: 9))
+                .font(.caption2)
                 .foregroundColor(.secondary)
-                .padding(.horizontal, 4)
+                .padding(.horizontal, 5)
                 .padding(.vertical, 1.5)
-                .background(Color.secondary.opacity(0.15))
-                .cornerRadius(4)
+                .background(Color.secondary.opacity(0.18))
+                .clipShape(Capsule())
         case .failed(let msg):
             Text("Failed: \(msg.prefix(15))")
-                .font(.system(size: 9))
+                .font(.caption2)
                 .foregroundColor(.red)
-                .padding(.horizontal, 4)
+                .padding(.horizontal, 5)
                 .padding(.vertical, 1.5)
-                .background(Color.red.opacity(0.15))
-                .cornerRadius(4)
+                .background(Color.red.opacity(0.18))
+                .clipShape(Capsule())
         }
     }
 }

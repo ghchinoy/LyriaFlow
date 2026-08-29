@@ -9,13 +9,16 @@ if [ "$1" == "--release" ] || [ "$1" == "-c release" ]; then
     BUILD_CONFIG="release"
 fi
 
+mkdir -p "$DIR/.cache/clang" "$DIR/.cache/tmp"
+SWIFT_BUILD_FLAGS="--disable-sandbox -Xbuild-tools-swiftc -module-cache-path -Xbuild-tools-swiftc $DIR/.cache/clang -Xswiftc -module-cache-path -Xswiftc $DIR/.cache/clang"
+
 if [ "$BUILD_CONFIG" == "release" ]; then
     echo "🔨 Building LyriaFlow (release)..."
-    swift build -c release --product LyriaFlow
+    swift build $SWIFT_BUILD_FLAGS -c release --product LyriaFlow
     BIN_DIR="$DIR/.build/release"
 else
     echo "⚡️ Building LyriaFlow (fast incremental debug)..."
-    swift build --product LyriaFlow
+    swift build $SWIFT_BUILD_FLAGS --product LyriaFlow
     BIN_DIR="$DIR/.build/debug"
 fi
 

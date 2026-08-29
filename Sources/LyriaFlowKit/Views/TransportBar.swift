@@ -12,13 +12,13 @@ public struct TransportBar: View {
     }
 
     public var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 8) {
             // Scrubber Row
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Text(formatTime(audioEngine.currentTime))
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(.caption.monospacedDigit())
                     .foregroundColor(.secondary)
-                    .frame(width: 40, alignment: .trailing)
+                    .frame(width: 42, alignment: .trailing)
 
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
@@ -37,7 +37,7 @@ public struct TransportBar: View {
                                 )
                             )
                             .frame(
-                                width: audioEngine.duration > 0
+                                width: (audioEngine.duration > 0 && geo.size.width > 0)
                                     ? max(0, min(geo.size.width, geo.size.width * CGFloat(audioEngine.currentTime / audioEngine.duration)))
                                     : 0,
                                 height: 4
@@ -48,18 +48,31 @@ public struct TransportBar: View {
                     .gesture(
                         DragGesture(minimumDistance: 0)
                             .onChanged { value in
-                                guard audioEngine.duration > 0 else { return }
+                                guard audioEngine.duration > 0, geo.size.width > 0 else { return }
                                 let fraction = max(0, min(1, value.location.x / geo.size.width))
                                 audioEngine.seek(to: audioEngine.duration * Double(fraction))
                             }
                     )
                 }
                 .frame(height: 14)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Playback progress")
+                .accessibilityValue("\(formatTime(audioEngine.currentTime)) of \(formatTime(audioEngine.duration))")
+                .accessibilityAdjustableAction { direction in
+                    switch direction {
+                    case .increment:
+                        audioEngine.seek(to: audioEngine.currentTime + 5)
+                    case .decrement:
+                        audioEngine.seek(to: audioEngine.currentTime - 5)
+                    @unknown default:
+                        break
+                    }
+                }
 
                 Text(formatTime(audioEngine.duration))
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(.caption.monospacedDigit())
                     .foregroundColor(.secondary)
-                    .frame(width: 40, alignment: .leading)
+                    .frame(width: 42, alignment: .leading)
             }
 
             // Controls Row
@@ -71,35 +84,35 @@ public struct TransportBar: View {
                         case .ready:
                             Image(systemName: "bolt.fill")
                                 .foregroundColor(.green)
-                                .font(.system(size: 10))
+                                .font(.caption2)
                             Text("Next: Ready")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.caption.weight(.semibold))
                                 .foregroundColor(.green)
                         case .generating:
                             ProgressView()
                                 .scaleEffect(0.5)
                                 .frame(width: 12, height: 12)
                             Text("Pre-generating next...")
-                                .font(.system(size: 11))
+                                .font(.caption)
                                 .foregroundColor(.orange)
                         case .queued:
                             Image(systemName: "list.bullet")
                                 .foregroundColor(.purple)
-                                .font(.system(size: 10))
+                                .font(.caption2)
                             Text("Queue: \(coordinator.queue.count) track\(coordinator.queue.count == 1 ? "" : "s")")
-                                .font(.system(size: 11))
+                                .font(.caption)
                                 .foregroundColor(.purple)
                         case .failed:
                             Image(systemName: "exclamationmark.circle")
                                 .foregroundColor(.red)
-                                .font(.system(size: 10))
+                                .font(.caption2)
                             Text("Queue item failed")
-                                .font(.system(size: 11))
+                                .font(.caption)
                                 .foregroundColor(.red)
                         }
 
                         Text("— \(first.prompt)")
-                            .font(.system(size: 11))
+                            .font(.caption)
                             .foregroundColor(.secondary)
                             .lineLimit(1)
                     } else if coordinator.isGenerating {
@@ -107,19 +120,19 @@ public struct TransportBar: View {
                             .scaleEffect(0.5)
                             .frame(width: 12, height: 12)
                         Text(coordinator.generationMessage)
-                            .font(.system(size: 11))
+                            .font(.caption)
                             .foregroundColor(.purple)
                             .lineLimit(1)
                     } else if settings.autoPlayEnabled {
                         Image(systemName: "infinity")
                             .foregroundColor(.purple)
-                            .font(.system(size: 10))
+                            .font(.caption2)
                         Text("Auto-Play ready")
-                            .font(.system(size: 11))
+                            .font(.caption)
                             .foregroundColor(.secondary)
                     } else {
                         Text(coordinator.currentTrack != nil ? "Ready" : "LyriaFlow Idle")
-                            .font(.system(size: 11))
+                            .font(.caption)
                             .foregroundColor(.secondary)
                     }
                 }
@@ -128,18 +141,19 @@ public struct TransportBar: View {
                 Spacer()
 
                 // Center Playback Buttons
-                HStack(spacing: 14) {
+                HStack(spacing: 16) {
                     // Loop Button
                     Button(action: {
                         settings.loopEnabled.toggle()
                         audioEngine.isLooping = settings.loopEnabled
                     }) {
                         Image(systemName: settings.loopEnabled ? "repeat.1" : "repeat")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.subheadline.weight(.medium))
                             .foregroundColor(settings.loopEnabled ? .purple : .secondary)
                     }
                     .buttonStyle(.plain)
                     .help("Loop Track")
+                    .accessibilityLabel(settings.loopEnabled ? "Disable Repeat" : "Enable Repeat")
 
                     // Play/Pause Main Button
                     Button(action: {
@@ -158,8 +172,8 @@ public struct TransportBar: View {
                         }
                     }
                     .buttonStyle(.plain)
-                    .keyboardShortcut(.space, modifiers: [])
                     .disabled(audioEngine.currentURL == nil && !coordinator.isGenerating)
+                    .accessibilityLabel(audioEngine.isPlaying ? "Pause" : "Play")
 
                     // Skip / Next Button
                     Button(action: {
@@ -173,11 +187,12 @@ public struct TransportBar: View {
                         }
                     }) {
                         Image(systemName: "forward.end.fill")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.subheadline.weight(.medium))
                             .foregroundColor(.primary)
                     }
                     .buttonStyle(.plain)
                     .help("Skip / Play Next")
+                    .accessibilityLabel("Skip to Next Track")
                 }
 
                 Spacer()
@@ -196,20 +211,21 @@ public struct TransportBar: View {
                     )) {
                         HStack(spacing: 4) {
                             Image(systemName: "infinity")
-                                .font(.system(size: 11, weight: .bold))
+                                .font(.caption.weight(.bold))
                             Text("Auto-Play")
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.caption.weight(.medium))
                         }
                         .foregroundColor(settings.autoPlayEnabled ? .purple : .secondary)
                     }
                     .toggleStyle(.switch)
                     .controlSize(.mini)
                     .help("Auto-generate and queue next tracks in background")
+                    .accessibilityLabel("Auto-Play toggle")
 
                     // Volume Slider
                     HStack(spacing: 6) {
                         Image(systemName: volumeIcon)
-                            .font(.system(size: 11))
+                            .font(.caption)
                             .foregroundColor(.secondary)
                             .frame(width: 14)
 
@@ -225,21 +241,20 @@ public struct TransportBar: View {
                         )
                         .frame(width: 75)
                         .controlSize(.mini)
+                        .accessibilityLabel("Volume slider")
                     }
                 }
                 .frame(width: 230, alignment: .trailing)
             }
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 10)
-        .background(
-            Color(nsColor: .windowBackgroundColor)
-                .overlay(
-                    Rectangle()
-                        .frame(height: 1)
-                        .foregroundColor(Color.white.opacity(0.08)),
-                    alignment: .top
-                )
+        .padding(.vertical, 12)
+        .background(.ultraThinMaterial)
+        .overlay(
+            Rectangle()
+                .frame(height: 1)
+                .foregroundColor(Color.primary.opacity(0.06)),
+            alignment: .top
         )
     }
 

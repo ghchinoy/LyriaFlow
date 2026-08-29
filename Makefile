@@ -16,10 +16,13 @@ help:
 	@echo "  make install  - Install release LyriaFlow.app into ~/Applications"
 	@echo "  make clean    - Remove build artifacts and temporary files"
 
+SWIFT_FLAGS ?= --disable-sandbox -Xbuild-tools-swiftc -module-cache-path -Xbuild-tools-swiftc $$(PWD)/.cache/clang -Xswiftc -module-cache-path -Xswiftc $$(PWD)/.cache/clang
+
 ## build: Compile Swift packages
 build:
 	@echo "🔨 Building LyriaFlow..."
-	@swift build
+	@mkdir -p .cache/clang .cache/tmp
+	@swift build $(SWIFT_FLAGS)
 
 ## run: Fast build and launch GUI app
 run:
@@ -30,17 +33,20 @@ run:
 ## run-cli: Launch directly via swift run
 run-cli:
 	@echo "🚀 Launching LyriaFlow in terminal..."
-	@swift run LyriaFlow
+	@mkdir -p .cache/clang .cache/tmp
+	@swift run $(SWIFT_FLAGS) LyriaFlow
 
 ## spike: Run the MCP verification test harness
 spike:
 	@echo "🎵 Running Lyria MCP Spike..."
-	@swift run LyriaFlowSpike
+	@mkdir -p .cache/clang .cache/tmp
+	@swift run $(SWIFT_FLAGS) LyriaFlowSpike
 
 ## test: Run unit tests
 test:
 	@echo "🧪 Running unit tests..."
-	@swift test
+	@mkdir -p .cache/clang .cache/tmp
+	@swift test $(SWIFT_FLAGS)
 
 ## app: Build release .app bundle
 app:

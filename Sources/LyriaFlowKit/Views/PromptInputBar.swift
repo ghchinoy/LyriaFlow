@@ -22,7 +22,7 @@ public struct PromptInputBar: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     Text("Try:")
-                        .font(.caption)
+                        .font(.caption.weight(.medium))
                         .foregroundColor(.secondary)
 
                     ForEach(inspirationPrompts, id: \.0) { chip in
@@ -30,13 +30,18 @@ public struct PromptInputBar: View {
                             promptText = chip.1
                         }) {
                             Text(chip.0)
-                                .font(.system(size: 11, weight: .medium))
-                                .padding(.horizontal, 8)
+                                .font(.caption.weight(.medium))
+                                .padding(.horizontal, 10)
                                 .padding(.vertical, 4)
-                                .background(Color(nsColor: .controlBackgroundColor).opacity(0.6))
-                                .cornerRadius(8)
+                                .background(.ultraThinMaterial)
+                                .clipShape(Capsule())
+                                .overlay(
+                                    Capsule()
+                                        .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                                )
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Inspiration prompt: \(chip.0)")
                     }
                 }
             }
@@ -46,11 +51,11 @@ public struct PromptInputBar: View {
                 HStack(spacing: 8) {
                     Image(systemName: "music.quarternote.3")
                         .foregroundColor(.purple)
-                        .font(.system(size: 14))
+                        .font(.subheadline)
 
                     TextField("Describe the music track to generate...", text: $promptText)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 13))
+                        .font(.body)
                         .onSubmit {
                             submitPrompt()
                         }
@@ -59,20 +64,19 @@ public struct PromptInputBar: View {
                         Button(action: { promptText = "" }) {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundColor(.secondary)
-                                .font(.system(size: 12))
+                                .font(.caption)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Clear prompt")
                     }
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 9)
-                .background(
+                .padding(.vertical, 8)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(Color(nsColor: .controlBackgroundColor))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.purple.opacity(0.3), lineWidth: 1)
-                        )
+                        .stroke(Color.purple.opacity(0.35), lineWidth: 1)
                 )
 
                 // Model Menu
@@ -90,17 +94,22 @@ public struct PromptInputBar: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text(cleanModelName(selectedModel))
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.subheadline.weight(.medium))
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 9))
+                            .font(.caption2)
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
-                    .background(Color(nsColor: .controlBackgroundColor))
-                    .cornerRadius(8)
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                    )
                 }
                 .menuStyle(.borderlessButton)
                 .fixedSize()
+                .accessibilityLabel("Select Lyria AI model")
 
                 // Generate Button
                 Button(action: submitPrompt) {
@@ -111,10 +120,10 @@ public struct PromptInputBar: View {
                                 .frame(width: 14, height: 14)
                         } else {
                             Image(systemName: "wand.and.stars")
-                                .font(.system(size: 12, weight: .bold))
+                                .font(.subheadline.weight(.bold))
                         }
                         Text(coordinator.isGenerating ? "Generating..." : "Generate")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.subheadline.weight(.semibold))
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
@@ -122,11 +131,12 @@ public struct PromptInputBar: View {
                 .buttonStyle(.borderedProminent)
                 .tint(Color.purple)
                 .disabled(coordinator.isGenerating || promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .accessibilityLabel(coordinator.isGenerating ? "Generating music track" : "Generate music track")
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(Color(nsColor: .windowBackgroundColor).opacity(0.8))
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(.ultraThinMaterial)
     }
 
     private func cleanModelName(_ raw: String) -> String {

@@ -39,7 +39,7 @@ public struct HistorySidebarView: View {
             // Header with App Title & Settings
             HStack {
                 Label("LyriaFlow", systemImage: "waveform")
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .font(.headline.weight(.bold))
                     .foregroundColor(.primary)
 
                 Spacer()
@@ -47,35 +47,27 @@ public struct HistorySidebarView: View {
                 Button(action: { showingSettings = true }) {
                     Image(systemName: "gearshape")
                         .foregroundColor(.secondary)
-                        .font(.system(size: 12))
+                        .font(.subheadline)
                 }
                 .buttonStyle(.plain)
                 .help("Settings")
+                .accessibilityLabel("LyriaFlow Settings")
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 12)
-            .padding(.bottom, 8)
+            .padding(.horizontal, 14)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
 
             // Segmented Tab Picker (Up Next vs History)
             Picker("Sidebar Section", selection: $selectedTab) {
-                HStack {
-                    Image(systemName: "list.bullet.indent")
-                    Text("Up Next")
-                    if !coordinator.queue.isEmpty {
-                        Text("(\(coordinator.queue.count))")
-                    }
-                }
-                .tag(SidebarTab.upNext)
+                Text("Up Next\(coordinator.queue.isEmpty ? "" : " (\(coordinator.queue.count))")")
+                    .tag(SidebarTab.upNext)
 
-                HStack {
-                    Image(systemName: "clock.arrow.circlepath")
-                    Text("History")
-                }
-                .tag(SidebarTab.history)
+                Text("History")
+                    .tag(SidebarTab.history)
             }
             .pickerStyle(.segmented)
-            .padding(.horizontal, 10)
-            .padding(.bottom, 8)
+            .padding(.horizontal, 12)
+            .padding(.bottom, 10)
 
             Divider()
 
@@ -95,7 +87,7 @@ public struct HistorySidebarView: View {
                     .frame(width: 8, height: 8)
 
                 Text(statusText)
-                    .font(.system(size: 10))
+                    .font(.caption)
                     .foregroundColor(.secondary)
                     .lineLimit(1)
 
@@ -108,12 +100,12 @@ public struct HistorySidebarView: View {
                         }
                     }
                     .buttonStyle(.borderless)
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.caption.weight(.bold))
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color(nsColor: .windowBackgroundColor))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(.ultraThinMaterial)
         }
         .frame(minWidth: 240, idealWidth: 280)
     }
@@ -121,19 +113,19 @@ public struct HistorySidebarView: View {
     private var historyContent: some View {
         VStack(spacing: 0) {
             // Search Bar & Filter
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.secondary)
-                    .font(.system(size: 11))
+                    .font(.caption)
                 TextField("Search history...", text: $searchText)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 11))
+                    .font(.subheadline)
 
                 if !searchText.isEmpty {
                     Button(action: { searchText = "" }) {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(.secondary)
-                            .font(.system(size: 10))
+                            .font(.caption)
                     }
                     .buttonStyle(.plain)
                 }
@@ -141,28 +133,33 @@ public struct HistorySidebarView: View {
                 Button(action: { showOnlyFavorites.toggle() }) {
                     Image(systemName: showOnlyFavorites ? "heart.fill" : "heart")
                         .foregroundColor(showOnlyFavorites ? .red : .secondary)
-                        .font(.system(size: 11))
+                        .font(.caption)
                 }
                 .buttonStyle(.plain)
                 .help(showOnlyFavorites ? "Show All Tracks" : "Show Favorites Only")
+                .accessibilityLabel(showOnlyFavorites ? "Show all tracks" : "Show favorite tracks only")
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .background(Color(nsColor: .controlBackgroundColor))
-            .cornerRadius(6)
-            .padding(8)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+            )
+            .padding(10)
 
             Divider()
 
             // Track List
             if filteredTracks.isEmpty {
-                VStack(spacing: 8) {
+                VStack(spacing: 10) {
                     Spacer()
                     Image(systemName: "clock")
-                        .font(.system(size: 24))
+                        .font(.system(size: 28))
                         .foregroundColor(.secondary.opacity(0.4))
                     Text(coordinator.tracks.isEmpty ? "No history yet" : "No matches found")
-                        .font(.system(size: 12))
+                        .font(.subheadline)
                         .foregroundColor(.secondary)
                     Spacer()
                 }
@@ -230,31 +227,32 @@ struct TrackRowView: View {
             Button(action: onPlay) {
                 ZStack {
                     Circle()
-                        .fill(isCurrent ? Color.purple : Color.secondary.opacity(0.15))
+                        .fill(isCurrent ? Color.purple : Color.primary.opacity(0.08))
                         .frame(width: 24, height: 24)
 
                     Image(systemName: isPlaying ? "speaker.wave.2.fill" : "play.fill")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.caption2.weight(.bold))
                         .foregroundColor(isCurrent ? .white : .primary)
                         .offset(x: isPlaying ? 0 : 0.5)
                 }
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(isPlaying ? "Pause track" : "Play \(track.prompt)")
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(track.prompt)
-                    .font(.system(size: 11, weight: isCurrent ? .semibold : .regular))
+                    .font(.subheadline.weight(isCurrent ? .semibold : .regular))
                     .foregroundColor(isCurrent ? .primary : .secondary)
                     .lineLimit(2)
 
                 HStack(spacing: 4) {
                     Text(timeAgo(track.createdAt))
-                        .font(.system(size: 9))
+                        .font(.caption)
                         .foregroundColor(.secondary.opacity(0.8))
 
                     if track.isFavorite {
                         Image(systemName: "heart.fill")
-                            .font(.system(size: 8))
+                            .font(.caption2)
                             .foregroundColor(.red)
                     }
                 }
@@ -265,17 +263,18 @@ struct TrackRowView: View {
             if isHovered {
                 Button(action: onToggleFavorite) {
                     Image(systemName: track.isFavorite ? "heart.fill" : "heart")
-                        .font(.system(size: 10))
+                        .font(.caption)
                         .foregroundColor(track.isFavorite ? .red : .secondary)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(track.isFavorite ? "Unfavorite track" : "Favorite track")
             }
         }
-        .padding(.vertical, 4)
-        .padding(.horizontal, 6)
+        .padding(.vertical, 5)
+        .padding(.horizontal, 8)
         .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(isCurrent ? Color.purple.opacity(0.1) : (isHovered ? Color.white.opacity(0.04) : Color.clear))
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isCurrent ? Color.purple.opacity(0.12) : (isHovered ? Color.primary.opacity(0.04) : Color.clear))
         )
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
