@@ -5,7 +5,7 @@ public final class AppSettings: ObservableObject {
     @AppStorage("gemini_api_key") public var storedGeminiApiKey: String = ""
     @AppStorage("mcp_binary_path") public var customMcpBinaryPath: String = ""
     @AppStorage("default_model_id") public var defaultModelId: String = "lyria-3-clip-preview"
-    @AppStorage("gemini_model") public var geminiModel: String = "gemini-2.5-flash"
+    @AppStorage("gemini_model") public var geminiModel: String = "gemini-3.7-flash"
     @AppStorage("auto_play_enabled") public var autoPlayEnabled: Bool = true
     @AppStorage("loop_enabled") public var loopEnabled: Bool = false
     @AppStorage("volume") public var volume: Double = 0.85
@@ -50,9 +50,7 @@ public final class AppSettings: ObservableObject {
     ]
 
     public static let availableGeminiModels = [
-        "gemini-2.5-flash",
         "gemini-3.7-flash",
-        "gemini-3.5-flash-lite",
-        "gemini-2.0-flash"
+        "gemini-3.5-flash-lite"
     ]
 }

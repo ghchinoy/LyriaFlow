@@ -6,7 +6,7 @@ public final class GeminiSuggestionEngine: Sendable {
     public func generateSuggestions(
         currentPrompt: String,
         apiKey: String,
-        modelName: String = "gemini-2.5-flash"
+        modelName: String = "gemini-3.7-flash"
     ) async -> GeminiSuggestions {
         let cleanKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         if cleanKey.isEmpty {
@@ -114,7 +114,7 @@ public final class GeminiSuggestionEngine: Sendable {
     public func generateMovementSuite(
         vibePrompt: String,
         apiKey: String,
-        modelName: String = "gemini-2.5-flash"
+        modelName: String = "gemini-3.7-flash"
     ) async -> MovementSuite {
         let cleanKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         if cleanKey.isEmpty {

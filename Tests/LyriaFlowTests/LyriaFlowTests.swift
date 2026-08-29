@@ -131,8 +131,11 @@ final class LyriaFlowTests: XCTestCase {
         let settings = AppSettings.shared
         XCTAssertFalse(settings.effectiveMcpBinaryPath.isEmpty)
         XCTAssertEqual(AppSettings.availableLyriaModels, ["lyria-3-clip-preview", "lyria-3-pro-preview"])
-        XCTAssertTrue(AppSettings.availableGeminiModels.contains("gemini-2.5-flash"))
+        XCTAssertEqual(AppSettings.availableGeminiModels, ["gemini-3.7-flash", "gemini-3.5-flash-lite"])
         XCTAssertTrue(AppSettings.availableGeminiModels.contains("gemini-3.7-flash"))
+        XCTAssertTrue(AppSettings.availableGeminiModels.contains("gemini-3.5-flash-lite"))
+        XCTAssertFalse(AppSettings.availableGeminiModels.contains("gemini-2.5-flash"))
+        XCTAssertFalse(AppSettings.availableGeminiModels.contains("gemini-2.0-flash"))
     }
 
     @MainActor

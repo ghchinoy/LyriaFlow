@@ -51,7 +51,7 @@ LyriaFlow is written in Swift and SwiftUI, built specifically for macOS 14 (Sono
 - **`MCPClient`**: An isolated Swift actor that manages the lifecycle of the `mcp-lyria-go` background process over standard input and standard output pipes. It translates Swift async calls into JSON-RPC 2.0 requests.
 - **`PlaybackCoordinator`**: The central `@MainActor` state machine. It manages track generation, queue ordering, auto-play progression, and UI state synchronization.
 - **`AudioEngine`**: A wrapper around `AVAudioPlayer`. It meters audio power levels across 32 distinct frequency bands, handles seeking, and broadcasts playback events.
-- **`GeminiSuggestionEngine`**: A client for Google AI Studio's Gemini REST API. It uses structured JSON output schemas to generate contextual musical prompt variations and 3-movement suites.
+- **`GeminiSuggestionEngine`**: A client for Google AI Studio's Gemini 3 REST API (`gemini-3.7-flash`, `gemini-3.5-flash-lite`). It uses structured JSON output schemas to generate contextual musical prompt variations and 3-movement suites.
 - **`PersistenceStore`**: Manages local JSON metadata in `~/Library/Application Support/LyriaFlow/tracks.json` and audio files in `~/Music/LyriaFlow/Tracks/`.
 - **`AudioFormatDetector`**: Inspects file header magic bytes to verify audio container formats (MP3 vs WAV) and ensures C2PA provenance signatures remain intact.
 

@@ -147,7 +147,7 @@ The project includes a streamlined `Makefile` for development:
 Open the **Settings** window (gear icon in the sidebar) to configure:
 
 - **Gemini API Key**: Provide an API key from Google AI Studio for dynamic prompt suggestions. If omitted, rich offline fallback templates are used automatically.
-- **Gemini Model**: Select between `gemini-2.5-flash` and `gemini-3.7-flash`.
+- **Gemini Model**: Select between `gemini-3.7-flash` (Gemini 3.7 Flash) and `gemini-3.5-flash-lite` (Gemini 3.5 Flash Lite).
 - **Lyria MCP Binary Path**: Custom path to the `mcp-lyria-go` executable with live "Test / Ping" button.
 - **Default Music Model**: Choose between `lyria-3-clip-preview` (fast clips) and `lyria-3-pro-preview` (high-fidelity music).
 - **Diagnostics & Logs**: Reveal or copy the persistent log file located at `~/Library/Logs/LyriaFlow/lyriaflow.log`.
