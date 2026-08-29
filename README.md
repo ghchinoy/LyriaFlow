@@ -177,9 +177,12 @@ For a detailed walkthrough of audio generation, queue mechanics, movement suites
 
 ---
 
-## License
+## License & Disclaimer
 
 LyriaFlow is open-source software licensed under the **Apache-2.0 License**. See [LICENSE](LICENSE) for details.
+
+### Disclaimer
+This project is an open-source community contribution and is not an officially supported Google product. This project is not eligible for the Google Open Source Software Vulnerability Rewards Program.
 
 ---
 

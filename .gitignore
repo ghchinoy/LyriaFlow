@@ -12,9 +12,11 @@ LyriaFlow.app/
 *.xcworkspace
 *.xcresult
 
-# Temporary & Local files
+# Temporary & Agent files
 *.swp
 *~
 *.log
 .env
 .agents/
+ORIGINAL_REQUEST.md
+*.request.md
