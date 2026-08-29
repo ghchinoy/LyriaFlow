@@ -1,6 +1,20 @@
+# Swift & Build artifacts
 .build/
 .cache/
+*.app/
+*.app
+LyriaFlow.app/
+
+# Xcode & Apple OS
 .DS_Store
 *.xcuserdata
-*.app/
-LyriaFlow.app/
+*.xcodeproj
+*.xcworkspace
+*.xcresult
+
+# Temporary & Local files
+*.swp
+*~
+*.log
+.env
+.agents/
