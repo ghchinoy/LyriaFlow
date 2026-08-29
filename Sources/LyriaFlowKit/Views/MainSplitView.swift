@@ -32,6 +32,9 @@ public struct MainSplitView: View {
         .sheet(isPresented: $showingSettings) {
             SettingsView(settings: coordinator.settings, coordinator: coordinator)
         }
+        .sheet(item: $coordinator.inspectingTrack) { track in
+            TrackInspectorView(track: track, coordinator: coordinator)
+        }
         .onAppear {
             NSApp.setActivationPolicy(.regular)
             NSApp.activate(ignoringOtherApps: true)

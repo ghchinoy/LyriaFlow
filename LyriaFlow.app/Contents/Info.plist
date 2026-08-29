@@ -4,6 +4,8 @@
 <dict>
     <key>CFBundleExecutable</key>
     <string>LyriaFlow</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>com.lyriaflow.app</string>
     <key>CFBundleName</key>

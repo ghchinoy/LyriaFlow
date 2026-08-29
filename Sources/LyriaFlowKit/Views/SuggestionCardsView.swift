@@ -34,7 +34,7 @@ public struct SuggestionCardsView: View {
                     ForEach(0..<3, id: \.self) { _ in
                         RoundedRectangle(cornerRadius: 12)
                             .fill(.ultraThinMaterial)
-                            .frame(height: 130)
+                            .frame(height: 160)
                             .overlay(
                                 ProgressView()
                                     .scaleEffect(0.8)
@@ -51,16 +51,22 @@ public struct SuggestionCardsView: View {
                         type: .similar,
                         prompt: suggestions.similar,
                         accentColor: .cyan,
-                        queueIndex: coordinator.queue.firstIndex(where: { $0.prompt == suggestions.similar }),
-                        queueStatus: coordinator.queue.first(where: { $0.prompt == suggestions.similar })?.status,
+                        queueIndex: coordinator.queue.firstIndex(where: { $0.prompt == suggestions.similar || $0.origin?.contains(SuggestionType.similar.rawValue) == true }),
+                        queueStatus: coordinator.queue.first(where: { $0.prompt == suggestions.similar || $0.origin?.contains(SuggestionType.similar.rawValue) == true })?.status,
                         onPlayNow: {
                             Task {
                                 await coordinator.generateAndPlay(prompt: suggestions.similar)
                             }
                         },
-                        onQueue: {
+                        onQueueSingle: {
                             coordinator.addToQueue(
                                 prompt: suggestions.similar,
+                                origin: SuggestionType.similar.rawValue
+                            )
+                        },
+                        onQueueSuite: {
+                            coordinator.queueMovementSuite(
+                                for: suggestions.similar,
                                 origin: SuggestionType.similar.rawValue
                             )
                         }
@@ -70,16 +76,22 @@ public struct SuggestionCardsView: View {
                         type: .fun,
                         prompt: suggestions.fun,
                         accentColor: .orange,
-                        queueIndex: coordinator.queue.firstIndex(where: { $0.prompt == suggestions.fun }),
-                        queueStatus: coordinator.queue.first(where: { $0.prompt == suggestions.fun })?.status,
+                        queueIndex: coordinator.queue.firstIndex(where: { $0.prompt == suggestions.fun || $0.origin?.contains(SuggestionType.fun.rawValue) == true }),
+                        queueStatus: coordinator.queue.first(where: { $0.prompt == suggestions.fun || $0.origin?.contains(SuggestionType.fun.rawValue) == true })?.status,
                         onPlayNow: {
                             Task {
                                 await coordinator.generateAndPlay(prompt: suggestions.fun)
                             }
                         },
-                        onQueue: {
+                        onQueueSingle: {
                             coordinator.addToQueue(
                                 prompt: suggestions.fun,
+                                origin: SuggestionType.fun.rawValue
+                            )
+                        },
+                        onQueueSuite: {
+                            coordinator.queueMovementSuite(
+                                for: suggestions.fun,
                                 origin: SuggestionType.fun.rawValue
                             )
                         }
@@ -89,16 +101,22 @@ public struct SuggestionCardsView: View {
                         type: .wild,
                         prompt: suggestions.wild,
                         accentColor: .pink,
-                        queueIndex: coordinator.queue.firstIndex(where: { $0.prompt == suggestions.wild }),
-                        queueStatus: coordinator.queue.first(where: { $0.prompt == suggestions.wild })?.status,
+                        queueIndex: coordinator.queue.firstIndex(where: { $0.prompt == suggestions.wild || $0.origin?.contains(SuggestionType.wild.rawValue) == true }),
+                        queueStatus: coordinator.queue.first(where: { $0.prompt == suggestions.wild || $0.origin?.contains(SuggestionType.wild.rawValue) == true })?.status,
                         onPlayNow: {
                             Task {
                                 await coordinator.generateAndPlay(prompt: suggestions.wild)
                             }
                         },
-                        onQueue: {
+                        onQueueSingle: {
                             coordinator.addToQueue(
                                 prompt: suggestions.wild,
+                                origin: SuggestionType.wild.rawValue
+                            )
+                        },
+                        onQueueSuite: {
+                            coordinator.queueMovementSuite(
+                                for: suggestions.wild,
                                 origin: SuggestionType.wild.rawValue
                             )
                         }
@@ -128,7 +146,8 @@ struct SuggestionCard: View {
     let queueIndex: Int?
     let queueStatus: QueueItemStatus?
     let onPlayNow: () -> Void
-    let onQueue: () -> Void
+    let onQueueSingle: () -> Void
+    let onQueueSuite: () -> Void
 
     @State private var isHovered: Bool = false
 
@@ -195,12 +214,13 @@ struct SuggestionCard: View {
 
             Spacer(minLength: 4)
 
-            HStack(spacing: 6) {
+            VStack(spacing: 6) {
                 Button(action: onPlayNow) {
                     HStack(spacing: 4) {
                         Image(systemName: "play.fill")
                         Text("Play Now")
                     }
+                    .frame(maxWidth: .infinity)
                     .font(.caption.weight(.semibold))
                 }
                 .buttonStyle(.borderedProminent)
@@ -208,20 +228,37 @@ struct SuggestionCard: View {
                 .controlSize(.small)
                 .accessibilityLabel("Play \(type.rawValue) suggestion now")
 
-                Button(action: onQueue) {
-                    HStack(spacing: 4) {
-                        Image(systemName: isQueued ? "checkmark" : "plus")
-                        Text(isQueued ? "Add Again" : "Queue")
+                HStack(spacing: 6) {
+                    Button(action: onQueueSingle) {
+                        HStack(spacing: 3) {
+                            Image(systemName: isQueued ? "checkmark" : "plus")
+                            Text(isQueued ? "+1 More" : "+1 Queue")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .font(.caption.weight(.medium))
                     }
-                    .font(.caption.weight(.medium))
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .help("Enqueue single track")
+                    .accessibilityLabel(isQueued ? "Add \(type.rawValue) suggestion again" : "Queue \(type.rawValue) suggestion")
+
+                    Button(action: onQueueSuite) {
+                        HStack(spacing: 3) {
+                            Image(systemName: "sparkles.rectangle.stack")
+                            Text("Queue 3x Vibe")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .font(.caption.weight(.medium))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .help("Enqueue 3-part cohesive progressive suite (Build, Groove, Climax)")
+                    .accessibilityLabel("Queue 3-track \(type.rawValue) suite")
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .accessibilityLabel(isQueued ? "Add \(type.rawValue) suggestion again" : "Queue \(type.rawValue) suggestion")
             }
         }
         .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 130, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 155, alignment: .topLeading)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(

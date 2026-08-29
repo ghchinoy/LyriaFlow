@@ -101,6 +101,7 @@ public struct QueuedTrack: Identifiable, Equatable, Sendable {
     public let id: UUID
     public var prompt: String
     public var modelId: String
+    public var seed: UInt32?
     public var origin: String?
     public var audioFileName: String
     public var status: QueueItemStatus
@@ -110,6 +111,7 @@ public struct QueuedTrack: Identifiable, Equatable, Sendable {
         id: UUID = UUID(),
         prompt: String,
         modelId: String = "lyria-3-clip-preview",
+        seed: UInt32? = nil,
         origin: String? = nil,
         audioFileName: String? = nil,
         status: QueueItemStatus = .queued,
@@ -118,6 +120,7 @@ public struct QueuedTrack: Identifiable, Equatable, Sendable {
         self.id = id
         self.prompt = prompt
         self.modelId = modelId
+        self.seed = seed ?? UInt32.random(in: 100_000...999_999_999)
         self.origin = origin
         self.audioFileName = audioFileName ?? "lyria_q_\(Int(Date().timeIntervalSince1970))_\(UUID().uuidString.prefix(6)).wav"
         self.status = status

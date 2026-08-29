@@ -171,6 +171,7 @@ public struct HistorySidebarView: View {
                         isCurrent: coordinator.currentTrack?.id == track.id,
                         isPlaying: coordinator.currentTrack?.id == track.id && coordinator.audioEngine.isPlaying,
                         onPlay: { coordinator.playExistingTrack(track) },
+                        onInspect: { coordinator.inspectingTrack = track },
                         onToggleFavorite: { coordinator.toggleFavorite(for: track) },
                         onDelete: { coordinator.deleteTrack(track) },
                         onReveal: { coordinator.revealInFinder(track) },
@@ -214,6 +215,7 @@ struct TrackRowView: View {
     let isCurrent: Bool
     let isPlaying: Bool
     let onPlay: () -> Void
+    let onInspect: () -> Void
     let onToggleFavorite: () -> Void
     let onDelete: () -> Void
     let onReveal: () -> Void
@@ -283,6 +285,7 @@ struct TrackRowView: View {
         }
         .contextMenu {
             Button("Play Track", action: onPlay)
+            Button("Get Info", action: onInspect)
             Button("Copy Prompt", action: onCopyPrompt)
             Button(track.isFavorite ? "Unfavorite" : "Favorite", action: onToggleFavorite)
             Button("Reveal in Finder", action: onReveal)

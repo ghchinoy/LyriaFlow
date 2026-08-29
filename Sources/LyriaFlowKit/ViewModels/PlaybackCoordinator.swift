@@ -12,6 +12,7 @@ public final class PlaybackCoordinator: ObservableObject {
     @Published public var currentSuggestions: GeminiSuggestions? = nil
     @Published public var isLoadingSuggestions: Bool = false
     @Published public var queue: [QueuedTrack] = []
+    @Published public var inspectingTrack: Track? = nil
     @Published public var errorMessage: String? = nil
 
     public let audioEngine: AudioEngine
@@ -68,7 +69,7 @@ public final class PlaybackCoordinator: ObservableObject {
     }
 
     // MARK: - Direct Track Generation & Playback
-    public func generateAndPlay(prompt: String, modelId: String? = nil) async {
+    public func generateAndPlay(prompt: String, modelId: String? = nil, seed: UInt32? = nil) async {
         let cleanPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanPrompt.isEmpty else { return }
 
@@ -77,11 +78,13 @@ public final class PlaybackCoordinator: ObservableObject {
         errorMessage = nil
 
         let model = modelId ?? settings.defaultModelId
+        let chosenSeed = seed ?? UInt32.random(in: 100_000...999_999_999)
         let fileName = "lyria_\(Int(Date().timeIntervalSince1970))_\(UUID().uuidString.prefix(6)).wav"
 
         var newTrack = Track(
             prompt: cleanPrompt,
             modelId: model,
+            seed: chosenSeed,
             createdAt: Date(),
             audioFileName: fileName,
             status: .generating
@@ -92,7 +95,8 @@ public final class PlaybackCoordinator: ObservableObject {
                 prompt: cleanPrompt,
                 modelId: model,
                 localDir: persistence.tracksDirectory,
-                fileName: fileName
+                fileName: fileName,
+                seed: chosenSeed
             )
             print("🎵 Generated file: \(fileURL.path), message: \(toolMsg)")
 
@@ -109,12 +113,18 @@ public final class PlaybackCoordinator: ObservableObject {
 
             // Trigger Gemini suggestions
             fetchSuggestionsForPlayingTrack(track: newTrack)
+
+            // Resume background queue pregeneration
+            processQueueWorker()
         } catch {
             isGenerating = false
             generationMessage = ""
             errorMessage = "Generation failed: \(error.localizedDescription)"
             newTrack.status = .failed
             print("❌ Generation failed: \(error)")
+
+            // Resume background queue worker
+            processQueueWorker()
         }
     }
 
@@ -128,7 +138,7 @@ public final class PlaybackCoordinator: ObservableObject {
             if let existingSuggestions = track.suggestions {
                 currentSuggestions = existingSuggestions
                 if settings.autoPlayEnabled && queue.isEmpty {
-                    scheduleAutoPlaySuggestion(suggestions: existingSuggestions)
+                    scheduleAutoPlaySuite(suggestions: existingSuggestions)
                 }
             } else {
                 fetchSuggestionsForPlayingTrack(track: track)
@@ -165,34 +175,48 @@ public final class PlaybackCoordinator: ObservableObject {
                 self.currentTrack?.suggestions = suggestions
             }
 
-            // If auto-play is enabled and queue is empty, auto-enqueue one of the suggestions!
+            // If auto-play is enabled and queue is empty, auto-enqueue a 3-track coherent suite!
             if self.settings.autoPlayEnabled && self.queue.isEmpty {
-                self.scheduleAutoPlaySuggestion(suggestions: suggestions)
+                self.scheduleAutoPlaySuite(suggestions: suggestions)
             }
         }
     }
 
-    public func scheduleAutoPlaySuggestion(suggestions: GeminiSuggestions) {
-        let types: [SuggestionType] = [.similar, .fun, .wild]
-        let pickedType = types.randomElement() ?? .similar
-        let pickedPrompt: String
-        switch pickedType {
-        case .similar: pickedPrompt = suggestions.similar
-        case .fun: pickedPrompt = suggestions.fun
-        case .wild: pickedPrompt = suggestions.wild
+    public func scheduleAutoPlaySuite(suggestions: GeminiSuggestions?) {
+        guard settings.autoPlayEnabled, queue.isEmpty else { return }
+
+        let basePrompt: String
+        let originType: String
+
+        if let suggestions = suggestions {
+            let types: [SuggestionType] = [.similar, .fun, .wild]
+            let pickedType = types.randomElement() ?? .similar
+            switch pickedType {
+            case .similar: basePrompt = suggestions.similar
+            case .fun: basePrompt = suggestions.fun
+            case .wild: basePrompt = suggestions.wild
+            }
+            originType = "Auto-Play: \(pickedType.rawValue)"
+        } else if let currentTrack = currentTrack {
+            basePrompt = currentTrack.prompt
+            originType = "Auto-Play"
+        } else {
+            basePrompt = "Ambient melodic journey"
+            originType = "Auto-Play"
         }
 
-        addToQueue(
-            prompt: pickedPrompt,
-            modelId: settings.defaultModelId,
-            origin: "Auto-Play: \(pickedType.rawValue)"
-        )
+        queueMovementSuite(for: basePrompt, origin: originType)
+    }
+
+    public func scheduleAutoPlaySuggestion(suggestions: GeminiSuggestions) {
+        scheduleAutoPlaySuite(suggestions: suggestions)
     }
 
     // MARK: - Up Next Queue Management
     public func addToQueue(
         prompt: String,
         modelId: String? = nil,
+        seed: UInt32? = nil,
         origin: String? = nil,
         playNext: Bool = false
     ) {
@@ -203,6 +227,7 @@ public final class PlaybackCoordinator: ObservableObject {
         let item = QueuedTrack(
             prompt: cleanPrompt,
             modelId: model,
+            seed: seed,
             origin: origin,
             status: .queued
         )
@@ -214,6 +239,64 @@ public final class PlaybackCoordinator: ObservableObject {
         }
 
         processQueueWorker()
+    }
+
+    /// Enqueues a cohesive 3-track progressive musical suite (Movement I, II, III)
+    public func queueMovementSuite(
+        for vibePrompt: String,
+        origin: String,
+        modelId: String? = nil
+    ) {
+        let cleanPrompt = vibePrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanPrompt.isEmpty else { return }
+
+        let model = modelId ?? settings.defaultModelId
+        let fallbackSuite = geminiEngine.fallbackMovementSuite(for: cleanPrompt)
+
+        let item1 = QueuedTrack(
+            prompt: fallbackSuite.movement1,
+            modelId: model,
+            origin: "\(origin) [1/3 Build]"
+        )
+        let item2 = QueuedTrack(
+            prompt: fallbackSuite.movement2,
+            modelId: model,
+            origin: "\(origin) [2/3 Groove]"
+        )
+        let item3 = QueuedTrack(
+            prompt: fallbackSuite.movement3,
+            modelId: model,
+            origin: "\(origin) [3/3 Climax]"
+        )
+
+        let itemIds = [item1.id, item2.id, item3.id]
+        queue.append(contentsOf: [item1, item2, item3])
+        processQueueWorker()
+
+        // If Gemini API key is configured, dynamically generate progressive prompts and refine unstarted items
+        let apiKey = settings.effectiveGeminiApiKey
+        if !apiKey.isEmpty {
+            Task { [weak self, cleanPrompt, itemIds] in
+                guard let self = self else { return }
+                let dynamicSuite = await self.geminiEngine.generateMovementSuite(
+                    vibePrompt: cleanPrompt,
+                    apiKey: apiKey,
+                    modelName: self.settings.geminiModel
+                )
+                guard !Task.isCancelled else { return }
+
+                // Update prompts for any queued tracks that haven't completed generation
+                if let idx0 = self.queue.firstIndex(where: { $0.id == itemIds[0] }), case .queued = self.queue[idx0].status {
+                    self.queue[idx0].prompt = dynamicSuite.movement1
+                }
+                if let idx1 = self.queue.firstIndex(where: { $0.id == itemIds[1] }), case .queued = self.queue[idx1].status {
+                    self.queue[idx1].prompt = dynamicSuite.movement2
+                }
+                if let idx2 = self.queue.firstIndex(where: { $0.id == itemIds[2] }), case .queued = self.queue[idx2].status {
+                    self.queue[idx2].prompt = dynamicSuite.movement3
+                }
+            }
+        }
     }
 
     public func removeFromQueue(id: UUID) {
@@ -265,6 +348,7 @@ public final class PlaybackCoordinator: ObservableObject {
                 let newTrack = Track(
                     prompt: item.prompt,
                     modelId: item.modelId,
+                    seed: item.seed,
                     createdAt: Date(),
                     duration: audioEngine.duration,
                     audioFileName: item.audioFileName,
@@ -280,13 +364,16 @@ public final class PlaybackCoordinator: ObservableObject {
             }
         } else {
             Task {
-                await generateAndPlay(prompt: item.prompt, modelId: item.modelId)
+                await generateAndPlay(prompt: item.prompt, modelId: item.modelId, seed: item.seed)
             }
         }
     }
 
     // MARK: - Queue Background Pre-Generation Worker
     public func processQueueWorker() {
+        // If foreground generation is currently in progress, defer pre-generation until it completes
+        if isGenerating { return }
+
         // Find the first queued item that needs pre-generation
         guard let targetIndex = queue.firstIndex(where: { $0.status == .queued }) else { return }
         let targetItem = queue[targetIndex]
@@ -306,7 +393,8 @@ public final class PlaybackCoordinator: ObservableObject {
                     prompt: targetItem.prompt,
                     modelId: targetItem.modelId,
                     localDir: persistence.tracksDirectory,
-                    fileName: targetItem.audioFileName
+                    fileName: targetItem.audioFileName,
+                    seed: targetItem.seed
                 )
 
                 guard !Task.isCancelled else {
@@ -326,6 +414,8 @@ public final class PlaybackCoordinator: ObservableObject {
                     self.queue[idx].status = .failed(error.localizedDescription)
                     print("⚠️ Queue pre-generation failed: \(error.localizedDescription)")
                 }
+                // Continue pre-generating subsequent queued items despite failure
+                self.processQueueWorker()
             }
         }
     }
@@ -346,6 +436,7 @@ public final class PlaybackCoordinator: ObservableObject {
                     let readyTrack = Track(
                         prompt: nextItem.prompt,
                         modelId: nextItem.modelId,
+                        seed: nextItem.seed,
                         createdAt: Date(),
                         duration: audioEngine.duration,
                         audioFileName: nextItem.audioFileName,
@@ -364,14 +455,18 @@ public final class PlaybackCoordinator: ObservableObject {
             } else {
                 // Was queued/generating; generate and play immediately
                 Task {
-                    await generateAndPlay(prompt: nextItem.prompt, modelId: nextItem.modelId)
+                    await generateAndPlay(prompt: nextItem.prompt, modelId: nextItem.modelId, seed: nextItem.seed)
                 }
             }
-        } else if let suggestions = currentSuggestions {
-            // Queue was empty; pick suggestion and play
-            let prompt = [suggestions.similar, suggestions.fun, suggestions.wild].randomElement() ?? suggestions.similar
-            Task {
-                await generateAndPlay(prompt: prompt)
+        } else if settings.autoPlayEnabled {
+            // Queue was empty; schedule 3-track coherent suite and start first movement
+            scheduleAutoPlaySuite(suggestions: currentSuggestions)
+            if !queue.isEmpty {
+                let firstItem = queue.removeFirst()
+                Task {
+                    await generateAndPlay(prompt: firstItem.prompt, modelId: firstItem.modelId, seed: firstItem.seed)
+                    processQueueWorker()
+                }
             }
         }
     }
@@ -388,6 +483,9 @@ public final class PlaybackCoordinator: ObservableObject {
     }
 
     public func deleteTrack(_ track: Track) {
+        if inspectingTrack?.id == track.id {
+            inspectingTrack = nil
+        }
         if currentTrack?.id == track.id {
             audioEngine.stop()
             currentTrack = nil

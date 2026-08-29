@@ -64,6 +64,17 @@ public struct NowPlayingView: View {
                                 Spacer()
 
                                 Button(action: {
+                                    coordinator.inspectingTrack = currentTrack
+                                }) {
+                                    Image(systemName: "info.circle")
+                                        .foregroundColor(.secondary)
+                                        .font(.subheadline)
+                                }
+                                .buttonStyle(.plain)
+                                .help("Get Info / Track Metadata")
+                                .accessibilityLabel("Inspect track metadata")
+
+                                Button(action: {
                                     coordinator.toggleFavorite(for: currentTrack)
                                 }) {
                                     Image(systemName: currentTrack.isFavorite ? "heart.fill" : "heart")
@@ -95,6 +106,16 @@ public struct NowPlayingView: View {
                                 .lineLimit(3)
                                 .frame(maxWidth: 620)
                         }
+                        .contentShape(Rectangle())
+                        .contextMenu {
+                            Button("Get Info") { coordinator.inspectingTrack = currentTrack }
+                            Button(currentTrack.isFavorite ? "Unfavorite" : "Favorite") { coordinator.toggleFavorite(for: currentTrack) }
+                            Button("Copy Prompt") {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(currentTrack.prompt, forType: .string)
+                            }
+                            Button("Reveal in Finder") { coordinator.revealInFinder(currentTrack) }
+                        }
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 8)
@@ -105,109 +126,6 @@ public struct NowPlayingView: View {
                     // Gemini Suggestions Section
                     SuggestionCardsView(coordinator: coordinator)
                         .padding(.horizontal, 24)
-
-                    // Embedded Up Next Queue Strip if queue is non-empty
-                    if !coordinator.queue.isEmpty {
-                        Divider()
-                            .padding(.horizontal, 24)
-
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack {
-                                Label("Up Next Playlist (\(coordinator.queue.count))", systemImage: "list.bullet.indent")
-                                    .font(.headline)
-                                    .foregroundColor(.primary)
-
-                                Spacer()
-
-                                Button("Clear Queue") {
-                                    coordinator.clearQueue()
-                                }
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                                .buttonStyle(.plain)
-                            }
-
-                            ForEach(Array(coordinator.queue.prefix(3).enumerated()), id: \.element.id) { index, item in
-                                HStack(spacing: 10) {
-                                    Text("#\(index + 1)")
-                                        .font(.caption.monospacedDigit().weight(.bold))
-                                        .foregroundColor(.secondary)
-                                        .frame(width: 24)
-
-                                    if let origin = item.origin {
-                                        Text(origin)
-                                            .font(.caption2.weight(.semibold))
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 2)
-                                            .background(Color.purple.opacity(0.18))
-                                            .foregroundColor(.purple)
-                                            .clipShape(Capsule())
-                                    }
-
-                                    Text(item.prompt)
-                                        .font(.subheadline)
-                                        .foregroundColor(.primary)
-                                        .lineLimit(1)
-
-                                    Spacer()
-
-                                    switch item.status {
-                                    case .ready:
-                                        Text("⚡️ Ready")
-                                            .font(.caption.weight(.bold))
-                                            .foregroundColor(.green)
-                                    case .generating:
-                                        HStack(spacing: 4) {
-                                            ProgressView().scaleEffect(0.5).frame(width: 10, height: 10)
-                                            Text("Generating...")
-                                        }
-                                        .font(.caption)
-                                        .foregroundColor(.orange)
-                                    case .queued:
-                                        Text("Queued")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    case .failed:
-                                        Text("Failed")
-                                            .font(.caption)
-                                            .foregroundColor(.red)
-                                    }
-
-                                    Button(action: {
-                                        coordinator.playQueueItemNow(id: item.id)
-                                    }) {
-                                        Image(systemName: "play.fill")
-                                            .font(.caption.weight(.bold))
-                                            .foregroundColor(.purple)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .help("Play Now")
-                                    .accessibilityLabel("Play \(item.prompt) now")
-
-                                    Button(action: {
-                                        coordinator.removeFromQueue(id: item.id)
-                                    }) {
-                                        Image(systemName: "xmark")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .help("Remove")
-                                    .accessibilityLabel("Remove \(item.prompt) from queue")
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(.ultraThinMaterial)
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .stroke(Color.primary.opacity(0.06), lineWidth: 1)
-                                )
-                            }
-                        }
-                        .padding(.horizontal, 24)
-                    }
-
                 } else {
                     // Empty state
                     VStack(spacing: 20) {

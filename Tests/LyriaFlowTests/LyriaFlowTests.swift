@@ -262,4 +262,304 @@ final class LyriaFlowTests: XCTestCase {
         XCTAssertEqual(url.lastPathComponent, "sample_track.wav")
         XCTAssertTrue(url.path.contains("LyriaFlow/Tracks"))
     }
+
+    func testMovementSuiteCreationAndCodable() throws {
+        let suite = MovementSuite(
+            movement1: "Movement I (Atmospheric Build): Ethereal ambient pads",
+            movement2: "Movement II (Deep Groove): Driving bass and syncopated beat",
+            movement3: "Movement III (Climax/Outro): Epic orchestral synth crescendo"
+        )
+
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(suite)
+
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(MovementSuite.self, from: data)
+
+        XCTAssertEqual(decoded.movement1, suite.movement1)
+        XCTAssertEqual(decoded.movement2, suite.movement2)
+        XCTAssertEqual(decoded.movement3, suite.movement3)
+    }
+
+    func testGeminiFallbackMovementSuite() {
+        let engine = GeminiSuggestionEngine()
+        let suite = engine.fallbackMovementSuite(for: "Cyberpunk Synthwave")
+
+        XCTAssertTrue(suite.movement1.contains("Movement I"))
+        XCTAssertTrue(suite.movement1.contains("Atmospheric Build"))
+        XCTAssertTrue(suite.movement1.contains("Cyberpunk Synthwave"))
+
+        XCTAssertTrue(suite.movement2.contains("Movement II"))
+        XCTAssertTrue(suite.movement2.contains("Deep Groove"))
+        XCTAssertTrue(suite.movement2.contains("Cyberpunk Synthwave"))
+
+        XCTAssertTrue(suite.movement3.contains("Movement III"))
+        XCTAssertTrue(suite.movement3.contains("Climax/Outro"))
+        XCTAssertTrue(suite.movement3.contains("Cyberpunk Synthwave"))
+    }
+
+    @MainActor
+    func testQueueMovementSuite() {
+        let coordinator = PlaybackCoordinator()
+        coordinator.clearQueue()
+        XCTAssertEqual(coordinator.queue.count, 0)
+
+        coordinator.queueMovementSuite(for: "Lo-Fi Lounge", origin: "Fun Twist")
+        XCTAssertEqual(coordinator.queue.count, 3)
+
+        XCTAssertEqual(coordinator.queue[0].origin, "Fun Twist [1/3 Build]")
+        XCTAssertTrue(coordinator.queue[0].prompt.contains("Movement I"))
+        XCTAssertNotNil(coordinator.queue[0].seed)
+
+        XCTAssertEqual(coordinator.queue[1].origin, "Fun Twist [2/3 Groove]")
+        XCTAssertTrue(coordinator.queue[1].prompt.contains("Movement II"))
+        XCTAssertNotNil(coordinator.queue[1].seed)
+
+        XCTAssertEqual(coordinator.queue[2].origin, "Fun Twist [3/3 Climax]")
+        XCTAssertTrue(coordinator.queue[2].prompt.contains("Movement III"))
+        XCTAssertNotNil(coordinator.queue[2].seed)
+
+        coordinator.clearQueue()
+    }
+
+    @MainActor
+    func testAutoPlaySuiteGeneration() {
+        let coordinator = PlaybackCoordinator()
+        coordinator.clearQueue()
+        coordinator.settings.autoPlayEnabled = true
+
+        let suggestions = GeminiSuggestions(
+            similar: "Smooth deep house vibe",
+            fun: "Funky disco groove with slap bass",
+            wild: "Dark cinematic cyber glitch"
+        )
+
+        coordinator.scheduleAutoPlaySuite(suggestions: suggestions)
+
+        XCTAssertEqual(coordinator.queue.count, 3)
+        XCTAssertTrue(coordinator.queue[0].origin?.contains("Auto-Play:") == true)
+        XCTAssertTrue(coordinator.queue[0].origin?.contains("[1/3 Build]") == true)
+        XCTAssertTrue(coordinator.queue[1].origin?.contains("[2/3 Groove]") == true)
+        XCTAssertTrue(coordinator.queue[2].origin?.contains("[3/3 Climax]") == true)
+
+        coordinator.clearQueue()
+    }
+
+    @MainActor
+    func testTrackMetadataPersistenceAndInspection() {
+        let coordinator = PlaybackCoordinator()
+        let suggestions = GeminiSuggestions(
+            similar: "Ambient chord progression",
+            fun: "Upbeat tropical bounce",
+            wild: "Industrial techno frenzy"
+        )
+
+        let track = Track(
+            prompt: "Sunset lo-fi chill hop with warm rhodes keys",
+            modelId: "lyria-3-pro-preview",
+            seed: 987654321,
+            createdAt: Date(),
+            duration: 32.0,
+            audioFileName: "lyria_test_sample.wav",
+            suggestions: suggestions,
+            isFavorite: true,
+            status: .ready
+        )
+
+        XCTAssertEqual(track.prompt, "Sunset lo-fi chill hop with warm rhodes keys")
+        XCTAssertEqual(track.modelId, "lyria-3-pro-preview")
+        XCTAssertEqual(track.seed, 987654321)
+        XCTAssertEqual(track.duration, 32.0)
+        XCTAssertEqual(track.suggestions?.similar, "Ambient chord progression")
+
+        coordinator.inspectingTrack = track
+        XCTAssertEqual(coordinator.inspectingTrack?.id, track.id)
+        XCTAssertEqual(coordinator.inspectingTrack?.seed, 987654321)
+
+        coordinator.inspectingTrack = nil
+        XCTAssertNil(coordinator.inspectingTrack)
+    }
+
+    func testQueuedTrackSeedInitialization() {
+        let trackWithSeed = QueuedTrack(prompt: "Custom Seed Track", seed: 424242)
+        XCTAssertEqual(trackWithSeed.seed, 424242)
+
+        let trackWithRandomSeed = QueuedTrack(prompt: "Random Seed Track")
+        XCTAssertNotNil(trackWithRandomSeed.seed)
+    }
+
+    @MainActor
+    func testTrackInspectorViewInstantiation() {
+        let coordinator = PlaybackCoordinator()
+        let track = Track(
+            prompt: "Test inspector instantiation",
+            modelId: "lyria-3-clip-preview",
+            seed: 112233,
+            duration: 30.0,
+            audioFileName: "test.wav"
+        )
+        let inspectorView = TrackInspectorView(track: track, coordinator: coordinator)
+        XCTAssertEqual(inspectorView.track.id, track.id)
+    }
+
+    func testGeminiGenerateMovementSuiteEmptyApiKeyFallback() async {
+        let engine = GeminiSuggestionEngine()
+        let suite = await engine.generateMovementSuite(vibePrompt: "Tokyo Night Jazz", apiKey: "   ")
+        XCTAssertTrue(suite.movement1.contains("Movement I"))
+        XCTAssertTrue(suite.movement1.contains("Atmospheric Build"))
+        XCTAssertTrue(suite.movement1.contains("Tokyo Night Jazz"))
+
+        XCTAssertTrue(suite.movement2.contains("Movement II"))
+        XCTAssertTrue(suite.movement2.contains("Deep Groove"))
+        XCTAssertTrue(suite.movement2.contains("Tokyo Night Jazz"))
+
+        XCTAssertTrue(suite.movement3.contains("Movement III"))
+        XCTAssertTrue(suite.movement3.contains("Climax/Outro"))
+        XCTAssertTrue(suite.movement3.contains("Tokyo Night Jazz"))
+    }
+
+    @MainActor
+    func testAutoPlaySuiteGenerationWithNilSuggestions() {
+        let coordinator = PlaybackCoordinator()
+        coordinator.clearQueue()
+        coordinator.settings.autoPlayEnabled = true
+        coordinator.currentTrack = Track(prompt: "Melodic Techno Base", audioFileName: "base.wav")
+
+        coordinator.scheduleAutoPlaySuite(suggestions: nil)
+
+        XCTAssertEqual(coordinator.queue.count, 3)
+        XCTAssertEqual(coordinator.queue[0].origin, "Auto-Play [1/3 Build]")
+        XCTAssertTrue(coordinator.queue[0].prompt.contains("Melodic Techno Base"))
+        XCTAssertEqual(coordinator.queue[1].origin, "Auto-Play [2/3 Groove]")
+        XCTAssertTrue(coordinator.queue[1].prompt.contains("Melodic Techno Base"))
+        XCTAssertEqual(coordinator.queue[2].origin, "Auto-Play [3/3 Climax]")
+        XCTAssertTrue(coordinator.queue[2].prompt.contains("Melodic Techno Base"))
+
+        coordinator.clearQueue()
+    }
+
+    @MainActor
+    func testTrackInspectorLiveFavoriteReactivity() {
+        let coordinator = PlaybackCoordinator()
+        let track = Track(
+            prompt: "Live Favorite Test",
+            audioFileName: "fav.wav",
+            isFavorite: false
+        )
+        coordinator.tracks = [track]
+        coordinator.currentTrack = track
+
+        coordinator.inspectingTrack = track
+        XCTAssertFalse(coordinator.tracks[0].isFavorite)
+
+        coordinator.toggleFavorite(for: track)
+        XCTAssertTrue(coordinator.tracks[0].isFavorite)
+        XCTAssertTrue(coordinator.currentTrack?.isFavorite == true)
+
+        coordinator.inspectingTrack = nil
+    }
+
+    @MainActor
+    func testSuggestionCardQueueMatchingSingleAndSuite() {
+        let coordinator = PlaybackCoordinator()
+        coordinator.clearQueue()
+
+        let suggestions = GeminiSuggestions(
+            similar: "Ambient Chill",
+            fun: "Funky Electro",
+            wild: "Dark Cyber"
+        )
+
+        // Enqueue single item for similar
+        coordinator.addToQueue(prompt: suggestions.similar, origin: SuggestionType.similar.rawValue)
+        let similarIdx = coordinator.queue.firstIndex(where: {
+            $0.prompt == suggestions.similar || $0.origin?.contains(SuggestionType.similar.rawValue) == true
+        })
+        XCTAssertEqual(similarIdx, 0)
+
+        // Enqueue 3x movement suite for fun
+        coordinator.queueMovementSuite(for: suggestions.fun, origin: SuggestionType.fun.rawValue)
+        let funIdx = coordinator.queue.firstIndex(where: {
+            $0.prompt == suggestions.fun || $0.origin?.contains(SuggestionType.fun.rawValue) == true
+        })
+        XCTAssertEqual(funIdx, 1)
+
+        // Wild should not be queued yet
+        let wildIdx = coordinator.queue.firstIndex(where: {
+            $0.prompt == suggestions.wild || $0.origin?.contains(SuggestionType.wild.rawValue) == true
+        })
+        XCTAssertNil(wildIdx)
+
+        coordinator.clearQueue()
+    }
+
+    @MainActor
+    func testPlaybackCoordinatorEmptyPromptNoOps() {
+        let coordinator = PlaybackCoordinator()
+        coordinator.clearQueue()
+
+        coordinator.addToQueue(prompt: "   ")
+        XCTAssertEqual(coordinator.queue.count, 0)
+
+        coordinator.addToQueue(prompt: "")
+        XCTAssertEqual(coordinator.queue.count, 0)
+
+        coordinator.queueMovementSuite(for: "   ", origin: "Test")
+        XCTAssertEqual(coordinator.queue.count, 0)
+    }
+
+    @MainActor
+    func testTrackDeleteStopsPlayingTrack() {
+        let coordinator = PlaybackCoordinator()
+        let track = Track(prompt: "Playing Track to Delete", audioFileName: "to_delete.wav")
+        coordinator.tracks = [track]
+        coordinator.currentTrack = track
+        coordinator.inspectingTrack = track
+
+        coordinator.deleteTrack(track)
+        XCTAssertNil(coordinator.currentTrack)
+        XCTAssertNil(coordinator.inspectingTrack)
+        XCTAssertFalse(coordinator.tracks.contains(where: { $0.id == track.id }))
+    }
+
+    func testPersistenceRoundTripWithRichMetadata() throws {
+        let originalSuggestions = GeminiSuggestions(
+            similar: "Smooth lo-fi chillhop with vinyl crackle",
+            fun: "Upbeat future bass drop",
+            wild: "Dark cinematic synthwave pulse"
+        )
+        let track = Track(
+            prompt: "Cyberpunk rooftop rain ambience with synth pads",
+            modelId: "lyria-3-pro-preview",
+            seed: 778899,
+            createdAt: Date(),
+            duration: 45.2,
+            audioFileName: "lyria_test_roundtrip.wav",
+            suggestions: originalSuggestions,
+            isFavorite: true,
+            status: .ready
+        )
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        let encodedData = try encoder.encode([track])
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decodedTracks = try decoder.decode([Track].self, from: encodedData)
+
+        XCTAssertEqual(decodedTracks.count, 1)
+        let decoded = decodedTracks[0]
+        XCTAssertEqual(decoded.id, track.id)
+        XCTAssertEqual(decoded.prompt, track.prompt)
+        XCTAssertEqual(decoded.modelId, "lyria-3-pro-preview")
+        XCTAssertEqual(decoded.seed, 778899)
+        XCTAssertEqual(decoded.duration, 45.2, accuracy: 0.001)
+        XCTAssertEqual(decoded.audioFileName, "lyria_test_roundtrip.wav")
+        XCTAssertEqual(decoded.isFavorite, true)
+        XCTAssertEqual(decoded.status, .ready)
+        XCTAssertEqual(decoded.suggestions, originalSuggestions)
+    }
 }
+
