@@ -42,6 +42,35 @@ final class LyriaFlowTests: XCTestCase {
         XCTAssertEqual(decoded.suggestions?.wild, "Dark cyber industrial techno")
     }
 
+    func testQueuedTrackLifecycleAndReordering() {
+        var item1 = QueuedTrack(prompt: "Track 1", origin: "Similar")
+        let item2 = QueuedTrack(prompt: "Track 2", origin: "Fun Twist")
+        let item3 = QueuedTrack(prompt: "Track 3", origin: "Wildcard")
+
+        XCTAssertEqual(item1.status, .queued)
+        XCTAssertFalse(item1.status.isReady)
+        XCTAssertFalse(item1.status.isGenerating)
+
+        item1.status = .generating
+        XCTAssertTrue(item1.status.isGenerating)
+
+        let dummyURL = URL(fileURLWithPath: "/tmp/test.wav")
+        item1.status = .ready(fileURL: dummyURL, duration: 30.0)
+        XCTAssertTrue(item1.status.isReady)
+
+        // Test Queue Array Reordering
+        var queue = [item1, item2, item3]
+        XCTAssertEqual(queue.map(\.prompt), ["Track 1", "Track 2", "Track 3"])
+
+        // Swap / move
+        queue.swapAt(0, 1)
+        XCTAssertEqual(queue.map(\.prompt), ["Track 2", "Track 1", "Track 3"])
+
+        // Remove item
+        queue.remove(at: 1)
+        XCTAssertEqual(queue.map(\.prompt), ["Track 2", "Track 3"])
+    }
+
     func testGeminiFallbackSuggestions() {
         let engine = GeminiSuggestionEngine()
         let suggestions = engine.fallbackSuggestions(for: "Chill lo-fi beats")

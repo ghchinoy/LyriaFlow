@@ -64,23 +64,43 @@ public struct TransportBar: View {
 
             // Controls Row
             HStack(spacing: 16) {
-                // Left status / Auto-Play Queue status
+                // Left status / Up Next Queue Status Pill
                 HStack(spacing: 6) {
-                    if coordinator.pregeneratedTrack != nil {
-                        Image(systemName: "bolt.horizontal.fill")
-                            .foregroundColor(.green)
-                            .font(.system(size: 10))
-                        Text("Next up: Ready")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.green)
-                            .lineLimit(1)
-                    } else if coordinator.pregeneratingPrompt != nil {
-                        ProgressView()
-                            .scaleEffect(0.5)
-                            .frame(width: 12, height: 12)
-                        Text("Pre-generating next track...")
+                    if let first = coordinator.queue.first {
+                        switch first.status {
+                        case .ready:
+                            Image(systemName: "bolt.fill")
+                                .foregroundColor(.green)
+                                .font(.system(size: 10))
+                            Text("Next: Ready")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(.green)
+                        case .generating:
+                            ProgressView()
+                                .scaleEffect(0.5)
+                                .frame(width: 12, height: 12)
+                            Text("Pre-generating next...")
+                                .font(.system(size: 11))
+                                .foregroundColor(.orange)
+                        case .queued:
+                            Image(systemName: "list.bullet")
+                                .foregroundColor(.purple)
+                                .font(.system(size: 10))
+                            Text("Queue: \(coordinator.queue.count) track\(coordinator.queue.count == 1 ? "" : "s")")
+                                .font(.system(size: 11))
+                                .foregroundColor(.purple)
+                        case .failed:
+                            Image(systemName: "exclamationmark.circle")
+                                .foregroundColor(.red)
+                                .font(.system(size: 10))
+                            Text("Queue item failed")
+                                .font(.system(size: 11))
+                                .foregroundColor(.red)
+                        }
+
+                        Text("— \(first.prompt)")
                             .font(.system(size: 11))
-                            .foregroundColor(.orange)
+                            .foregroundColor(.secondary)
                             .lineLimit(1)
                     } else if coordinator.isGenerating {
                         ProgressView()
@@ -90,13 +110,20 @@ public struct TransportBar: View {
                             .font(.system(size: 11))
                             .foregroundColor(.purple)
                             .lineLimit(1)
+                    } else if settings.autoPlayEnabled {
+                        Image(systemName: "infinity")
+                            .foregroundColor(.purple)
+                            .font(.system(size: 10))
+                        Text("Auto-Play ready")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
                     } else {
                         Text(coordinator.currentTrack != nil ? "Ready" : "LyriaFlow Idle")
                             .font(.system(size: 11))
                             .foregroundColor(.secondary)
                     }
                 }
-                .frame(width: 220, alignment: .leading)
+                .frame(width: 250, alignment: .leading)
 
                 Spacer()
 
@@ -136,8 +163,8 @@ public struct TransportBar: View {
 
                     // Skip / Next Button
                     Button(action: {
-                        if let pregen = coordinator.pregeneratedTrack {
-                            coordinator.playExistingTrack(pregen)
+                        if !coordinator.queue.isEmpty {
+                            coordinator.playQueueItemNow(id: coordinator.queue[0].id)
                         } else if let suggestions = coordinator.currentSuggestions {
                             let prompt = [suggestions.similar, suggestions.fun, suggestions.wild].randomElement() ?? suggestions.similar
                             Task {
@@ -150,7 +177,7 @@ public struct TransportBar: View {
                             .foregroundColor(.primary)
                     }
                     .buttonStyle(.plain)
-                    .help("Skip / Play Next Suggestion")
+                    .help("Skip / Play Next")
                 }
 
                 Spacer()
@@ -158,7 +185,15 @@ public struct TransportBar: View {
                 // Right Controls (Auto-Play Toggle & Volume)
                 HStack(spacing: 14) {
                     // Auto-Play Toggle
-                    Toggle(isOn: $settings.autoPlayEnabled) {
+                    Toggle(isOn: Binding(
+                        get: { settings.autoPlayEnabled },
+                        set: { enabled in
+                            settings.autoPlayEnabled = enabled
+                            if enabled && coordinator.queue.isEmpty, let suggestions = coordinator.currentSuggestions {
+                                coordinator.scheduleAutoPlaySuggestion(suggestions: suggestions)
+                            }
+                        }
+                    )) {
                         HStack(spacing: 4) {
                             Image(systemName: "infinity")
                                 .font(.system(size: 11, weight: .bold))
@@ -169,7 +204,7 @@ public struct TransportBar: View {
                     }
                     .toggleStyle(.switch)
                     .controlSize(.mini)
-                    .help("Seamlessly generate and play next tracks in background")
+                    .help("Auto-generate and queue next tracks in background")
 
                     // Volume Slider
                     HStack(spacing: 6) {

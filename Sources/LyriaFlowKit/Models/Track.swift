@@ -79,3 +79,48 @@ public struct Track: Identifiable, Codable, Equatable, Sendable {
         self.status = status
     }
 }
+
+public enum QueueItemStatus: Equatable, Sendable {
+    case queued
+    case generating
+    case ready(fileURL: URL, duration: TimeInterval)
+    case failed(String)
+
+    public var isReady: Bool {
+        if case .ready = self { return true }
+        return false
+    }
+
+    public var isGenerating: Bool {
+        if case .generating = self { return true }
+        return false
+    }
+}
+
+public struct QueuedTrack: Identifiable, Equatable, Sendable {
+    public let id: UUID
+    public var prompt: String
+    public var modelId: String
+    public var origin: String?
+    public var audioFileName: String
+    public var status: QueueItemStatus
+    public var createdAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        prompt: String,
+        modelId: String = "lyria-3-clip-preview",
+        origin: String? = nil,
+        audioFileName: String? = nil,
+        status: QueueItemStatus = .queued,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.prompt = prompt
+        self.modelId = modelId
+        self.origin = origin
+        self.audioFileName = audioFileName ?? "lyria_q_\(Int(Date().timeIntervalSince1970))_\(UUID().uuidString.prefix(6)).wav"
+        self.status = status
+        self.createdAt = createdAt
+    }
+}

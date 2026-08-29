@@ -11,9 +11,7 @@ public final class PlaybackCoordinator: ObservableObject {
     @Published public var generationMessage: String = ""
     @Published public var currentSuggestions: GeminiSuggestions? = nil
     @Published public var isLoadingSuggestions: Bool = false
-    @Published public var pregeneratedTrack: Track? = nil
-    @Published public var pregeneratingPrompt: String? = nil
-    @Published public var pregenerationType: SuggestionType? = nil
+    @Published public var queue: [QueuedTrack] = []
     @Published public var errorMessage: String? = nil
 
     public let audioEngine: AudioEngine
@@ -22,7 +20,7 @@ public final class PlaybackCoordinator: ObservableObject {
     public let persistence: PersistenceStore
     public let settings: AppSettings
 
-    private var pregenerationTask: Task<Void, Never>?
+    private var queueWorkerTask: Task<Void, Never>?
     private var suggestionsTask: Task<Void, Never>?
 
     public init(
@@ -69,17 +67,10 @@ public final class PlaybackCoordinator: ObservableObject {
         }
     }
 
-    // MARK: - Track Generation & Playback
+    // MARK: - Direct Track Generation & Playback
     public func generateAndPlay(prompt: String, modelId: String? = nil) async {
         let cleanPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanPrompt.isEmpty else { return }
-
-        // Cancel any pending pregeneration
-        pregenerationTask?.cancel()
-        pregenerationTask = nil
-        pregeneratedTrack = nil
-        pregeneratingPrompt = nil
-        pregenerationType = nil
 
         isGenerating = true
         generationMessage = "Composing track with Lyria AI..."
@@ -134,11 +125,10 @@ public final class PlaybackCoordinator: ObservableObject {
             currentTrack = track
             errorMessage = nil
 
-            // Reset or fetch suggestions
             if let existingSuggestions = track.suggestions {
                 currentSuggestions = existingSuggestions
-                if settings.autoPlayEnabled {
-                    scheduleAutoPlayPregeneration(suggestions: existingSuggestions)
+                if settings.autoPlayEnabled && queue.isEmpty {
+                    scheduleAutoPlaySuggestion(suggestions: existingSuggestions)
                 }
             } else {
                 fetchSuggestionsForPlayingTrack(track: track)
@@ -148,7 +138,7 @@ public final class PlaybackCoordinator: ObservableObject {
         }
     }
 
-    // MARK: - Gemini Suggestions & Background Pre-generation
+    // MARK: - Gemini Suggestions & Queue Integration
     public func fetchSuggestionsForPlayingTrack(track: Track) {
         suggestionsTask?.cancel()
         isLoadingSuggestions = true
@@ -175,15 +165,14 @@ public final class PlaybackCoordinator: ObservableObject {
                 self.currentTrack?.suggestions = suggestions
             }
 
-            // If auto-play is enabled, begin background pregeneration
-            if self.settings.autoPlayEnabled {
-                self.scheduleAutoPlayPregeneration(suggestions: suggestions)
+            // If auto-play is enabled and queue is empty, auto-enqueue one of the suggestions!
+            if self.settings.autoPlayEnabled && self.queue.isEmpty {
+                self.scheduleAutoPlaySuggestion(suggestions: suggestions)
             }
         }
     }
 
-    public func scheduleAutoPlayPregeneration(suggestions: GeminiSuggestions) {
-        // Randomly pick one of the 3 suggestions for continuous auto-play
+    public func scheduleAutoPlaySuggestion(suggestions: GeminiSuggestions) {
         let types: [SuggestionType] = [.similar, .fun, .wild]
         let pickedType = types.randomElement() ?? .similar
         let pickedPrompt: String
@@ -193,46 +182,131 @@ public final class PlaybackCoordinator: ObservableObject {
         case .wild: pickedPrompt = suggestions.wild
         }
 
-        startPregeneration(prompt: pickedPrompt, type: pickedType)
+        addToQueue(
+            prompt: pickedPrompt,
+            modelId: settings.defaultModelId,
+            origin: "Auto-Play: \(pickedType.rawValue)"
+        )
     }
 
-    public func selectSuggestion(_ type: SuggestionType, playImmediately: Bool = false) {
-        guard let suggestions = currentSuggestions else { return }
-        let selectedPrompt: String
-        switch type {
-        case .similar: selectedPrompt = suggestions.similar
-        case .fun: selectedPrompt = suggestions.fun
-        case .wild: selectedPrompt = suggestions.wild
+    // MARK: - Up Next Queue Management
+    public func addToQueue(
+        prompt: String,
+        modelId: String? = nil,
+        origin: String? = nil,
+        playNext: Bool = false
+    ) {
+        let cleanPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanPrompt.isEmpty else { return }
+
+        let model = modelId ?? settings.defaultModelId
+        let item = QueuedTrack(
+            prompt: cleanPrompt,
+            modelId: model,
+            origin: origin,
+            status: .queued
+        )
+
+        if playNext {
+            queue.insert(item, at: 0)
+        } else {
+            queue.append(item)
         }
 
-        if playImmediately {
-            Task {
-                await generateAndPlay(prompt: selectedPrompt)
+        processQueueWorker()
+    }
+
+    public func removeFromQueue(id: UUID) {
+        if let idx = queue.firstIndex(where: { $0.id == id }) {
+            let item = queue[idx]
+            if case .ready(let fileURL, _) = item.status {
+                try? FileManager.default.removeItem(at: fileURL)
+            }
+            queue.remove(at: idx)
+            processQueueWorker()
+        }
+    }
+
+    public func clearQueue() {
+        queueWorkerTask?.cancel()
+        queueWorkerTask = nil
+        for item in queue {
+            if case .ready(let fileURL, _) = item.status {
+                try? FileManager.default.removeItem(at: fileURL)
+            }
+        }
+        queue.removeAll()
+    }
+
+    public func moveQueueItem(from offsets: IndexSet, to destination: Int) {
+        queue.move(fromOffsets: offsets, toOffset: destination)
+        processQueueWorker()
+    }
+
+    public func moveQueueItemUp(id: UUID) {
+        guard let idx = queue.firstIndex(where: { $0.id == id }), idx > 0 else { return }
+        queue.swapAt(idx, idx - 1)
+        processQueueWorker()
+    }
+
+    public func moveQueueItemDown(id: UUID) {
+        guard let idx = queue.firstIndex(where: { $0.id == id }), idx < queue.count - 1 else { return }
+        queue.swapAt(idx, idx + 1)
+        processQueueWorker()
+    }
+
+    public func playQueueItemNow(id: UUID) {
+        guard let idx = queue.firstIndex(where: { $0.id == id }) else { return }
+        let item = queue.remove(at: idx)
+
+        if case .ready(let fileURL, _) = item.status {
+            do {
+                try audioEngine.loadAndPlay(url: fileURL)
+                let newTrack = Track(
+                    prompt: item.prompt,
+                    modelId: item.modelId,
+                    createdAt: Date(),
+                    duration: audioEngine.duration,
+                    audioFileName: item.audioFileName,
+                    status: .ready
+                )
+                tracks.insert(newTrack, at: 0)
+                persistence.saveTracks(tracks)
+                currentTrack = newTrack
+                fetchSuggestionsForPlayingTrack(track: newTrack)
+                processQueueWorker()
+            } catch {
+                errorMessage = "Failed to play queued track: \(error.localizedDescription)"
             }
         } else {
-            // Queue and pre-generate this specific suggestion
-            startPregeneration(prompt: selectedPrompt, type: type)
+            Task {
+                await generateAndPlay(prompt: item.prompt, modelId: item.modelId)
+            }
         }
     }
 
-    private func startPregeneration(prompt: String, type: SuggestionType) {
-        pregenerationTask?.cancel()
-        pregeneratedTrack = nil
-        pregeneratingPrompt = prompt
-        pregenerationType = type
+    // MARK: - Queue Background Pre-Generation Worker
+    public func processQueueWorker() {
+        // Find the first queued item that needs pre-generation
+        guard let targetIndex = queue.firstIndex(where: { $0.status == .queued }) else { return }
+        let targetItem = queue[targetIndex]
 
-        pregenerationTask = Task {
-            let fileName = "lyria_pregen_\(Int(Date().timeIntervalSince1970))_\(UUID().uuidString.prefix(6)).wav"
-            let model = settings.defaultModelId
+        // Don't start another pre-generation task if one is already generating this item
+        if queue.contains(where: { $0.status.isGenerating }) {
+            return
+        }
 
-            print("🔄 Pre-generating next track in background: \"\(prompt)\"")
+        queue[targetIndex].status = .generating
+        print("🔄 Pre-generating queue item [\(targetIndex + 1)/\(queue.count)]: \"\(targetItem.prompt)\"")
 
+        queueWorkerTask?.cancel()
+        queueWorkerTask = Task {
             do {
                 let (fileURL, _) = try await mcpClient.generateMusic(
-                    prompt: prompt,
-                    modelId: model,
+                    prompt: targetItem.prompt,
+                    modelId: targetItem.modelId,
                     localDir: persistence.tracksDirectory,
-                    fileName: fileName
+                    fileName: targetItem.audioFileName
                 )
 
                 guard !Task.isCancelled else {
@@ -240,60 +314,61 @@ public final class PlaybackCoordinator: ObservableObject {
                     return
                 }
 
-                let pregen = Track(
-                    prompt: prompt,
-                    modelId: model,
-                    createdAt: Date(),
-                    audioFileName: fileName,
-                    status: .pregenerated
-                )
+                if let idx = self.queue.firstIndex(where: { $0.id == targetItem.id }) {
+                    self.queue[idx].status = .ready(fileURL: fileURL, duration: 30.0)
+                    print("✨ Queue item ready: \"\(targetItem.prompt)\"")
+                }
 
-                self.pregeneratedTrack = pregen
-                print("✨ Background pre-generation complete! Ready in queue.")
+                // If there's another queued item, continue pre-generating
+                self.processQueueWorker()
             } catch {
-                print("⚠️ Background pre-generation failed: \(error.localizedDescription)")
+                if let idx = self.queue.firstIndex(where: { $0.id == targetItem.id }) {
+                    self.queue[idx].status = .failed(error.localizedDescription)
+                    print("⚠️ Queue pre-generation failed: \(error.localizedDescription)")
+                }
             }
         }
     }
 
     private func handleTrackDidFinish() {
         if settings.loopEnabled {
-            // Loop handled by AudioEngine numberOfLoops
             return
         }
 
-        guard settings.autoPlayEnabled else { return }
+        guard settings.autoPlayEnabled || !queue.isEmpty else { return }
 
-        // If we have a pregenerated track ready, play it instantly!
-        if let nextTrack = pregeneratedTrack {
-            let fileURL = persistence.audioFileURL(for: nextTrack)
-            do {
-                try audioEngine.loadAndPlay(url: fileURL)
-                var readyTrack = nextTrack
-                readyTrack.duration = audioEngine.duration
-                readyTrack.status = .ready
+        if !queue.isEmpty {
+            let nextItem = queue.removeFirst()
 
-                tracks.insert(readyTrack, at: 0)
-                persistence.saveTracks(tracks)
-                currentTrack = readyTrack
+            if case .ready(let fileURL, _) = nextItem.status {
+                do {
+                    try audioEngine.loadAndPlay(url: fileURL)
+                    let readyTrack = Track(
+                        prompt: nextItem.prompt,
+                        modelId: nextItem.modelId,
+                        createdAt: Date(),
+                        duration: audioEngine.duration,
+                        audioFileName: nextItem.audioFileName,
+                        status: .ready
+                    )
 
-                pregeneratedTrack = nil
-                pregeneratingPrompt = nil
-                pregenerationType = nil
+                    tracks.insert(readyTrack, at: 0)
+                    persistence.saveTracks(tracks)
+                    currentTrack = readyTrack
 
-                fetchSuggestionsForPlayingTrack(track: readyTrack)
-            } catch {
-                print("❌ Failed to play pregenerated track: \(error)")
-            }
-        } else if let prompt = pregeneratingPrompt {
-            // Pre-generation was still in flight; wait for it to finish and play
-            generationMessage = "Queueing next track..."
-            isGenerating = true
-            Task {
-                await generateAndPlay(prompt: prompt)
+                    fetchSuggestionsForPlayingTrack(track: readyTrack)
+                    processQueueWorker()
+                } catch {
+                    print("❌ Failed to play ready queued track: \(error)")
+                }
+            } else {
+                // Was queued/generating; generate and play immediately
+                Task {
+                    await generateAndPlay(prompt: nextItem.prompt, modelId: nextItem.modelId)
+                }
             }
         } else if let suggestions = currentSuggestions {
-            // Fallback pick
+            // Queue was empty; pick suggestion and play
             let prompt = [suggestions.similar, suggestions.fun, suggestions.wild].randomElement() ?? suggestions.similar
             Task {
                 await generateAndPlay(prompt: prompt)

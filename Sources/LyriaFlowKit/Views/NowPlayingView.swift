@@ -2,7 +2,6 @@ import SwiftUI
 
 public struct NowPlayingView: View {
     @ObservedObject var coordinator: PlaybackCoordinator
-    @State private var rotationAngle: Double = 0
 
     public init(coordinator: PlaybackCoordinator) {
         self.coordinator = coordinator
@@ -116,6 +115,102 @@ public struct NowPlayingView: View {
                     SuggestionCardsView(coordinator: coordinator)
                         .padding(.horizontal, 20)
 
+                    // Embedded Up Next Queue Strip if queue is non-empty
+                    if !coordinator.queue.isEmpty {
+                        Divider()
+                            .padding(.horizontal, 20)
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                Label("Up Next Playlist (\(coordinator.queue.count))", systemImage: "list.bullet.indent")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(.primary)
+
+                                Spacer()
+
+                                Button("Clear Queue") {
+                                    coordinator.clearQueue()
+                                }
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .buttonStyle(.plain)
+                            }
+
+                            ForEach(Array(coordinator.queue.prefix(3).enumerated()), id: \.element.id) { index, item in
+                                HStack(spacing: 8) {
+                                    Text("#\(index + 1)")
+                                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                        .foregroundColor(.secondary)
+                                        .frame(width: 22)
+
+                                    if let origin = item.origin {
+                                        Text(origin)
+                                            .font(.system(size: 9, weight: .semibold))
+                                            .padding(.horizontal, 5)
+                                            .padding(.vertical, 1.5)
+                                            .background(Color.purple.opacity(0.15))
+                                            .foregroundColor(.purple)
+                                            .cornerRadius(4)
+                                    }
+
+                                    Text(item.prompt)
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.primary)
+                                        .lineLimit(1)
+
+                                    Spacer()
+
+                                    switch item.status {
+                                    case .ready:
+                                        Text("⚡️ Ready")
+                                            .font(.system(size: 9, weight: .bold))
+                                            .foregroundColor(.green)
+                                    case .generating:
+                                        HStack(spacing: 3) {
+                                            ProgressView().scaleEffect(0.4).frame(width: 8, height: 8)
+                                            Text("Generating...")
+                                        }
+                                        .font(.system(size: 9))
+                                        .foregroundColor(.orange)
+                                    case .queued:
+                                        Text("Queued")
+                                            .font(.system(size: 9))
+                                            .foregroundColor(.secondary)
+                                    case .failed:
+                                        Text("Failed")
+                                            .font(.system(size: 9))
+                                            .foregroundColor(.red)
+                                    }
+
+                                    Button(action: {
+                                        coordinator.playQueueItemNow(id: item.id)
+                                    }) {
+                                        Image(systemName: "play.fill")
+                                            .font(.system(size: 8))
+                                            .foregroundColor(.purple)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("Play Now")
+
+                                    Button(action: {
+                                        coordinator.removeFromQueue(id: item.id)
+                                    }) {
+                                        Image(systemName: "xmark")
+                                            .font(.system(size: 8))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("Remove")
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(Color(nsColor: .controlBackgroundColor).opacity(0.4))
+                                .cornerRadius(8)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                    }
+
                 } else {
                     // Empty state
                     VStack(spacing: 16) {
@@ -171,7 +266,6 @@ public struct NowPlayingView: View {
 struct VinylRecordView: View {
     let isPlaying: Bool
     @State private var rotation: Double = 0
-    @State private var timer: Timer?
 
     var body: some View {
         ZStack {
@@ -226,7 +320,7 @@ struct VinylRecordView: View {
     }
 
     private func setupRotation() {
-        Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { t in
+        Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { _ in
             if isPlaying {
                 rotation = (rotation + 1.2).truncatingRemainder(dividingBy: 360)
             }

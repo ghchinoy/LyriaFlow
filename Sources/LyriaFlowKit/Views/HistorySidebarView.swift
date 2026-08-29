@@ -1,8 +1,23 @@
 import SwiftUI
 
+public enum SidebarTab: String, CaseIterable, Identifiable {
+    case upNext = "Up Next"
+    case history = "History"
+
+    public var id: String { rawValue }
+
+    public var iconName: String {
+        switch self {
+        case .upNext: return "list.bullet.indent"
+        case .history: return "clock.arrow.circlepath"
+        }
+    }
+}
+
 public struct HistorySidebarView: View {
     @ObservedObject var coordinator: PlaybackCoordinator
     @Binding var showingSettings: Bool
+    @State private var selectedTab: SidebarTab = .upNext
     @State private var searchText: String = ""
     @State private var showOnlyFavorites: Bool = false
 
@@ -21,90 +36,54 @@ public struct HistorySidebarView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            // Header with title and filter
-            VStack(spacing: 8) {
-                HStack {
-                    Label("LyriaFlow", systemImage: "waveform")
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
-                        .foregroundColor(.primary)
+            // Header with App Title & Settings
+            HStack {
+                Label("LyriaFlow", systemImage: "waveform")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundColor(.primary)
 
-                    Spacer()
+                Spacer()
 
-                    Button(action: { showOnlyFavorites.toggle() }) {
-                        Image(systemName: showOnlyFavorites ? "heart.fill" : "heart")
-                            .foregroundColor(showOnlyFavorites ? .red : .secondary)
-                            .font(.system(size: 12))
-                    }
-                    .buttonStyle(.plain)
-                    .help(showOnlyFavorites ? "Show All Tracks" : "Show Favorites Only")
-
-                    Button(action: { showingSettings = true }) {
-                        Image(systemName: "gearshape")
-                            .foregroundColor(.secondary)
-                            .font(.system(size: 12))
-                    }
-                    .buttonStyle(.plain)
-                    .help("Settings")
-                }
-
-                // Search Bar
-                HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass")
+                Button(action: { showingSettings = true }) {
+                    Image(systemName: "gearshape")
                         .foregroundColor(.secondary)
-                        .font(.system(size: 11))
-                    TextField("Search tracks...", text: $searchText)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 11))
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(.plain)
+                .help("Settings")
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
 
-                    if !searchText.isEmpty {
-                        Button(action: { searchText = "" }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
-                                .font(.system(size: 10))
-                        }
-                        .buttonStyle(.plain)
+            // Segmented Tab Picker (Up Next vs History)
+            Picker("Sidebar Section", selection: $selectedTab) {
+                HStack {
+                    Image(systemName: "list.bullet.indent")
+                    Text("Up Next")
+                    if !coordinator.queue.isEmpty {
+                        Text("(\(coordinator.queue.count))")
                     }
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
-                .background(Color(nsColor: .controlBackgroundColor))
-                .cornerRadius(6)
+                .tag(SidebarTab.upNext)
+
+                HStack {
+                    Image(systemName: "clock.arrow.circlepath")
+                    Text("History")
+                }
+                .tag(SidebarTab.history)
             }
-            .padding(12)
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 10)
+            .padding(.bottom, 8)
 
             Divider()
 
-            // Track List
-            if filteredTracks.isEmpty {
-                VStack(spacing: 8) {
-                    Spacer()
-                    Image(systemName: "music.note.list")
-                        .font(.system(size: 24))
-                        .foregroundColor(.secondary.opacity(0.6))
-                    Text(coordinator.tracks.isEmpty ? "No tracks yet" : "No matches found")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity)
+            // Tab Content
+            if selectedTab == .upNext {
+                UpNextQueueView(coordinator: coordinator)
             } else {
-                List(filteredTracks) { track in
-                    TrackRowView(
-                        track: track,
-                        isCurrent: coordinator.currentTrack?.id == track.id,
-                        isPlaying: coordinator.currentTrack?.id == track.id && coordinator.audioEngine.isPlaying,
-                        onPlay: { coordinator.playExistingTrack(track) },
-                        onToggleFavorite: { coordinator.toggleFavorite(for: track) },
-                        onDelete: { coordinator.deleteTrack(track) },
-                        onReveal: { coordinator.revealInFinder(track) },
-                        onCopyPrompt: {
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(track.prompt, forType: .string)
-                        }
-                    )
-                    .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
-                }
-                .listStyle(.sidebar)
+                historyContent
             }
 
             Divider()
@@ -136,7 +115,78 @@ public struct HistorySidebarView: View {
             .padding(.vertical, 8)
             .background(Color(nsColor: .windowBackgroundColor))
         }
-        .frame(minWidth: 220, idealWidth: 260)
+        .frame(minWidth: 240, idealWidth: 280)
+    }
+
+    private var historyContent: some View {
+        VStack(spacing: 0) {
+            // Search Bar & Filter
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.secondary)
+                    .font(.system(size: 11))
+                TextField("Search history...", text: $searchText)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 11))
+
+                if !searchText.isEmpty {
+                    Button(action: { searchText = "" }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                            .font(.system(size: 10))
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Button(action: { showOnlyFavorites.toggle() }) {
+                    Image(systemName: showOnlyFavorites ? "heart.fill" : "heart")
+                        .foregroundColor(showOnlyFavorites ? .red : .secondary)
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.plain)
+                .help(showOnlyFavorites ? "Show All Tracks" : "Show Favorites Only")
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(Color(nsColor: .controlBackgroundColor))
+            .cornerRadius(6)
+            .padding(8)
+
+            Divider()
+
+            // Track List
+            if filteredTracks.isEmpty {
+                VStack(spacing: 8) {
+                    Spacer()
+                    Image(systemName: "clock")
+                        .font(.system(size: 24))
+                        .foregroundColor(.secondary.opacity(0.4))
+                    Text(coordinator.tracks.isEmpty ? "No history yet" : "No matches found")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List(filteredTracks) { track in
+                    TrackRowView(
+                        track: track,
+                        isCurrent: coordinator.currentTrack?.id == track.id,
+                        isPlaying: coordinator.currentTrack?.id == track.id && coordinator.audioEngine.isPlaying,
+                        onPlay: { coordinator.playExistingTrack(track) },
+                        onToggleFavorite: { coordinator.toggleFavorite(for: track) },
+                        onDelete: { coordinator.deleteTrack(track) },
+                        onReveal: { coordinator.revealInFinder(track) },
+                        onCopyPrompt: {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(track.prompt, forType: .string)
+                        }
+                    )
+                    .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
+                }
+                .listStyle(.sidebar)
+            }
+        }
     }
 
     private var statusColor: Color {
