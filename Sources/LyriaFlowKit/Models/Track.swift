@@ -122,7 +122,7 @@ public struct QueuedTrack: Identifiable, Equatable, Sendable {
         self.modelId = modelId
         self.seed = seed ?? UInt32.random(in: 100_000...999_999_999)
         self.origin = origin
-        self.audioFileName = audioFileName ?? "lyria_q_\(Int(Date().timeIntervalSince1970))_\(UUID().uuidString.prefix(6)).wav"
+        self.audioFileName = audioFileName ?? "lyria_q_\(Int(Date().timeIntervalSince1970))_\(UUID().uuidString.prefix(6)).mp3"
         self.status = status
         self.createdAt = createdAt
     }

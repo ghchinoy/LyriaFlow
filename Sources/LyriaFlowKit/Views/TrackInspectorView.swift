@@ -124,6 +124,27 @@ public struct TrackInspectorView: View {
                             }
 
                             GridRow {
+                                Text("Format:")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundColor(.secondary)
+                                HStack(spacing: 6) {
+                                    let detected = AudioFormatDetector.detectFormat(for: coordinator.persistence.audioFileURL(for: liveTrack))
+                                    Text(detected.displayName)
+                                        .font(.caption)
+                                        .foregroundColor(.primary)
+                                    if detected == .mp3 {
+                                        Text("C2PA Signed")
+                                            .font(.system(size: 9, weight: .bold))
+                                            .padding(.horizontal, 5)
+                                            .padding(.vertical, 1.5)
+                                            .background(Color.green.opacity(0.18))
+                                            .foregroundColor(.green)
+                                            .clipShape(Capsule())
+                                    }
+                                }
+                            }
+
+                            GridRow {
                                 Text("Seed:")
                                     .font(.caption.weight(.semibold))
                                     .foregroundColor(.secondary)

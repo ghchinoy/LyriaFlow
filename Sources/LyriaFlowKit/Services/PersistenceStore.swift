@@ -92,14 +92,19 @@ public final class PersistenceStore: @unchecked Sendable {
         guard let files = try? fileManager.contentsOfDirectory(atPath: tracksDirectory.path) else {
             return []
         }
+        let supportedExtensions = Set(["mp3", "wav", "m4a", "flac", "aac"])
         var found: [Track] = []
-        for file in files where file.hasSuffix(".wav") {
+
+        for file in files {
+            let ext = (file as NSString).pathExtension.lowercased()
+            guard supportedExtensions.contains(ext) else { continue }
+
             let filePath = tracksDirectory.appendingPathComponent(file)
             let attrs = try? fileManager.attributesOfItem(atPath: filePath.path)
             let modDate = attrs?[.modificationDate] as? Date ?? Date()
 
-            let cleanPrompt = file
-                .replacingOccurrences(of: ".wav", with: "")
+            let baseName = (file as NSString).deletingPathExtension
+            let cleanPrompt = baseName
                 .replacingOccurrences(of: "spike_test_", with: "Spike Test: ")
                 .replacingOccurrences(of: "_", with: " ")
 

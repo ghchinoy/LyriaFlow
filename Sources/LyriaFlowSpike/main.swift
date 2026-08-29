@@ -198,7 +198,7 @@ guard foundLyriaTool else {
 }
 
 // Step 4: Test Music Generation
-let testFileName = "spike_test_\(Int(Date().timeIntervalSince1970)).wav"
+let testFileName = "spike_test_\(Int(Date().timeIntervalSince1970)).mp3"
 let testPrompt = "Warm lo-fi ambient electronic music with soft rhodes and lush analog synth pads"
 print("\n--- Step 4: Calling 'lyria_generate_music' ---")
 print("Prompt: \"\(testPrompt)\"")

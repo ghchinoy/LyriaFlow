@@ -79,7 +79,7 @@ public final class PlaybackCoordinator: ObservableObject {
 
         let model = modelId ?? settings.defaultModelId
         let chosenSeed = seed ?? UInt32.random(in: 100_000...999_999_999)
-        let fileName = "lyria_\(Int(Date().timeIntervalSince1970))_\(UUID().uuidString.prefix(6)).wav"
+        let fileName = "lyria_\(Int(Date().timeIntervalSince1970))_\(UUID().uuidString.prefix(6)).mp3"
 
         var newTrack = Track(
             prompt: cleanPrompt,
@@ -99,6 +99,10 @@ public final class PlaybackCoordinator: ObservableObject {
                 seed: chosenSeed
             )
             print("🎵 Generated file: \(fileURL.path), message: \(toolMsg)")
+
+            // Inspect magic bytes to confirm/normalize container format
+            let detectedFormat = AudioFormatDetector.detectFormat(for: fileURL)
+            print("📦 Audio container detected: \(detectedFormat.displayName) (ext: .\(detectedFormat.fileExtension))")
 
             try audioEngine.loadAndPlay(url: fileURL)
             newTrack.duration = audioEngine.duration

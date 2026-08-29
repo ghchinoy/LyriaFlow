@@ -15,7 +15,7 @@ final class LyriaFlowTests: XCTestCase {
             modelId: "lyria-3-clip-preview",
             seed: 12345,
             duration: 30.5,
-            audioFileName: "test_file.wav",
+            audioFileName: "test_file.mp3",
             suggestions: suggestions,
             isFavorite: true,
             status: .ready
@@ -34,7 +34,7 @@ final class LyriaFlowTests: XCTestCase {
         XCTAssertEqual(decoded.modelId, "lyria-3-clip-preview")
         XCTAssertEqual(decoded.seed, 12345)
         XCTAssertEqual(decoded.duration, 30.5)
-        XCTAssertEqual(decoded.audioFileName, "test_file.wav")
+        XCTAssertEqual(decoded.audioFileName, "test_file.mp3")
         XCTAssertEqual(decoded.isFavorite, true)
         XCTAssertEqual(decoded.status, .ready)
         XCTAssertEqual(decoded.suggestions?.similar, "Smooth jazz chillout with rhodes")
@@ -50,11 +50,12 @@ final class LyriaFlowTests: XCTestCase {
         XCTAssertEqual(item1.status, .queued)
         XCTAssertFalse(item1.status.isReady)
         XCTAssertFalse(item1.status.isGenerating)
+        XCTAssertTrue(item1.audioFileName.hasSuffix(".mp3"))
 
         item1.status = .generating
         XCTAssertTrue(item1.status.isGenerating)
 
-        let dummyURL = URL(fileURLWithPath: "/tmp/test.wav")
+        let dummyURL = URL(fileURLWithPath: "/tmp/test.mp3")
         item1.status = .ready(fileURL: dummyURL, duration: 30.0)
         XCTAssertTrue(item1.status.isReady)
 
@@ -69,6 +70,39 @@ final class LyriaFlowTests: XCTestCase {
         // Remove item
         queue.remove(at: 1)
         XCTAssertEqual(queue.map(\.prompt), ["Track 2", "Track 3"])
+    }
+
+    func testAudioFormatDetectorMagicBytes() {
+        // 1. ID3 header (MP3 with C2PA / metadata)
+        let id3Data = Data([0x49, 0x44, 0x33, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+        XCTAssertEqual(AudioFormatDetector.detectFormat(from: id3Data), .mp3)
+        XCTAssertEqual(AudioFormatDetector.preferredExtension(for: id3Data), "mp3")
+
+        // 2. MPEG frame sync (Raw MP3 stream: 0xFF 0xFB)
+        let mpegData = Data([0xFF, 0xFB, 0x90, 0x64, 0x00, 0x00, 0x00, 0x00])
+        XCTAssertEqual(AudioFormatDetector.detectFormat(from: mpegData), .mp3)
+
+        // 3. RIFF WAVE (Standard uncompressed WAV)
+        let riffWaveData = Data([
+            0x52, 0x49, 0x46, 0x46, // RIFF
+            0x24, 0x08, 0x00, 0x00, // Size
+            0x57, 0x41, 0x56, 0x45  // WAVE
+        ])
+        XCTAssertEqual(AudioFormatDetector.detectFormat(from: riffWaveData), .wav)
+        XCTAssertEqual(AudioFormatDetector.preferredExtension(for: riffWaveData), "wav")
+
+        // 4. FLAC
+        let flacData = Data([0x66, 0x4C, 0x61, 0x43, 0x00, 0x00, 0x00, 0x22])
+        XCTAssertEqual(AudioFormatDetector.detectFormat(from: flacData), .flac)
+
+        // 5. M4A (ISO Base Media)
+        let m4aData = Data([0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70, 0x4D, 0x34, 0x41, 0x20])
+        XCTAssertEqual(AudioFormatDetector.detectFormat(from: m4aData), .m4a)
+
+        // 6. Unknown / Empty
+        let emptyData = Data([0x00, 0x01])
+        XCTAssertEqual(AudioFormatDetector.detectFormat(from: emptyData), .unknown)
+        XCTAssertEqual(AudioFormatDetector.preferredExtension(for: emptyData), "mp3")
     }
 
     func testGeminiFallbackSuggestions() {
@@ -242,7 +276,7 @@ final class LyriaFlowTests: XCTestCase {
         XCTAssertFalse(generating.isReady)
         XCTAssertTrue(generating.isGenerating)
 
-        let ready = QueueItemStatus.ready(fileURL: URL(fileURLWithPath: "/tmp/sample.wav"), duration: 30.0)
+        let ready = QueueItemStatus.ready(fileURL: URL(fileURLWithPath: "/tmp/sample.mp3"), duration: 30.0)
         XCTAssertTrue(ready.isReady)
         XCTAssertFalse(ready.isGenerating)
 
@@ -256,10 +290,10 @@ final class LyriaFlowTests: XCTestCase {
         let track = Track(
             prompt: "Test Persistence",
             modelId: "lyria-3-clip-preview",
-            audioFileName: "sample_track.wav"
+            audioFileName: "sample_track.mp3"
         )
         let url = store.audioFileURL(for: track)
-        XCTAssertEqual(url.lastPathComponent, "sample_track.wav")
+        XCTAssertEqual(url.lastPathComponent, "sample_track.mp3")
         XCTAssertTrue(url.path.contains("LyriaFlow/Tracks"))
     }
 
@@ -360,7 +394,7 @@ final class LyriaFlowTests: XCTestCase {
             seed: 987654321,
             createdAt: Date(),
             duration: 32.0,
-            audioFileName: "lyria_test_sample.wav",
+            audioFileName: "lyria_test_sample.mp3",
             suggestions: suggestions,
             isFavorite: true,
             status: .ready
@@ -396,7 +430,7 @@ final class LyriaFlowTests: XCTestCase {
             modelId: "lyria-3-clip-preview",
             seed: 112233,
             duration: 30.0,
-            audioFileName: "test.wav"
+            audioFileName: "test.mp3"
         )
         let inspectorView = TrackInspectorView(track: track, coordinator: coordinator)
         XCTAssertEqual(inspectorView.track.id, track.id)
@@ -423,7 +457,7 @@ final class LyriaFlowTests: XCTestCase {
         let coordinator = PlaybackCoordinator()
         coordinator.clearQueue()
         coordinator.settings.autoPlayEnabled = true
-        coordinator.currentTrack = Track(prompt: "Melodic Techno Base", audioFileName: "base.wav")
+        coordinator.currentTrack = Track(prompt: "Melodic Techno Base", audioFileName: "base.mp3")
 
         coordinator.scheduleAutoPlaySuite(suggestions: nil)
 
@@ -443,7 +477,7 @@ final class LyriaFlowTests: XCTestCase {
         let coordinator = PlaybackCoordinator()
         let track = Track(
             prompt: "Live Favorite Test",
-            audioFileName: "fav.wav",
+            audioFileName: "fav.mp3",
             isFavorite: false
         )
         coordinator.tracks = [track]
@@ -511,7 +545,7 @@ final class LyriaFlowTests: XCTestCase {
     @MainActor
     func testTrackDeleteStopsPlayingTrack() {
         let coordinator = PlaybackCoordinator()
-        let track = Track(prompt: "Playing Track to Delete", audioFileName: "to_delete.wav")
+        let track = Track(prompt: "Playing Track to Delete", audioFileName: "to_delete.mp3")
         coordinator.tracks = [track]
         coordinator.currentTrack = track
         coordinator.inspectingTrack = track
@@ -534,7 +568,7 @@ final class LyriaFlowTests: XCTestCase {
             seed: 778899,
             createdAt: Date(),
             duration: 45.2,
-            audioFileName: "lyria_test_roundtrip.wav",
+            audioFileName: "lyria_test_roundtrip.mp3",
             suggestions: originalSuggestions,
             isFavorite: true,
             status: .ready
@@ -556,10 +590,9 @@ final class LyriaFlowTests: XCTestCase {
         XCTAssertEqual(decoded.modelId, "lyria-3-pro-preview")
         XCTAssertEqual(decoded.seed, 778899)
         XCTAssertEqual(decoded.duration, 45.2, accuracy: 0.001)
-        XCTAssertEqual(decoded.audioFileName, "lyria_test_roundtrip.wav")
+        XCTAssertEqual(decoded.audioFileName, "lyria_test_roundtrip.mp3")
         XCTAssertEqual(decoded.isFavorite, true)
         XCTAssertEqual(decoded.status, .ready)
         XCTAssertEqual(decoded.suggestions, originalSuggestions)
     }
 }
-
