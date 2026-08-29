@@ -33,6 +33,10 @@ mkdir -p "$RESOURCES_DIR"
 cp "$BIN_DIR/LyriaFlow" "$MACOS_DIR/LyriaFlow"
 chmod +x "$MACOS_DIR/LyriaFlow"
 
+if [ -f "$DIR/Resources/AppIcon.icns" ]; then
+    cp "$DIR/Resources/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
+fi
+
 cat <<EOF > "$APP_DIR/Contents/Info.plist"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -40,6 +44,8 @@ cat <<EOF > "$APP_DIR/Contents/Info.plist"
 <dict>
     <key>CFBundleExecutable</key>
     <string>LyriaFlow</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>com.lyriaflow.app</string>
     <key>CFBundleName</key>
