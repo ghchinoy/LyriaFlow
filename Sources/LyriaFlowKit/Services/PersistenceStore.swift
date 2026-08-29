@@ -8,7 +8,7 @@ public final class PersistenceStore: @unchecked Sendable {
     private let databaseURL: URL
     public let tracksDirectory: URL
     private let fileManager = FileManager.default
-    private let lock = NSLock()
+    private let lock = NSRecursiveLock()
 
     public init() {
         // App Support for JSON metadata database
@@ -33,8 +33,7 @@ public final class PersistenceStore: @unchecked Sendable {
         defer { lock.unlock() }
 
         guard fileManager.fileExists(atPath: databaseURL.path) else {
-            // Check if there are existing WAV files in the directory we can scan
-            return scanExistingFiles()
+            return scanExistingFilesLocked()
         }
 
         do {
@@ -52,7 +51,10 @@ public final class PersistenceStore: @unchecked Sendable {
     public func saveTracks(_ tracks: [Track]) {
         lock.lock()
         defer { lock.unlock() }
+        saveTracksLocked(tracks)
+    }
 
+    private func saveTracksLocked(_ tracks: [Track]) {
         do {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -69,10 +71,12 @@ public final class PersistenceStore: @unchecked Sendable {
     }
 
     public func deleteTrack(_ track: Track, tracks: inout [Track]) {
+        lock.lock()
+        defer { lock.unlock() }
         let fileURL = audioFileURL(for: track)
         try? fileManager.removeItem(at: fileURL)
         tracks.removeAll(where: { $0.id == track.id })
-        saveTracks(tracks)
+        saveTracksLocked(tracks)
     }
 
     public func revealInFinder(for track: Track) {
@@ -84,7 +88,7 @@ public final class PersistenceStore: @unchecked Sendable {
         }
     }
 
-    private func scanExistingFiles() -> [Track] {
+    private func scanExistingFilesLocked() -> [Track] {
         guard let files = try? fileManager.contentsOfDirectory(atPath: tracksDirectory.path) else {
             return []
         }
@@ -108,7 +112,7 @@ public final class PersistenceStore: @unchecked Sendable {
             found.append(track)
         }
         found.sort(by: { $0.createdAt > $1.createdAt })
-        saveTracks(found)
+        saveTracksLocked(found)
         return found
     }
 }
