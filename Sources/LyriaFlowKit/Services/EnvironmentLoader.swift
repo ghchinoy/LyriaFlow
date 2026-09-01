@@ -6,21 +6,21 @@ public final class EnvironmentLoader: @unchecked Sendable {
     public static let shared = EnvironmentLoader()
 
     private var envMap: [String: String] = [:]
+    private var hasLoadedFileConfigs = false
     private let lock = NSLock()
     private let homeDir: URL
 
     private init() {
         self.homeDir = FileManager.default.homeDirectoryForCurrentUser
-        loadEnvironment()
+        loadBasicEnvironment()
     }
 
-    public func loadEnvironment() {
+    /// Initializes basic system paths and environment variables in memory without performing disk I/O.
+    private func loadBasicEnvironment() {
         lock.lock()
         defer { lock.unlock() }
 
         var merged = ProcessInfo.processInfo.environment
-
-        // 1. Ensure basic system paths are populated
         let homePath = homeDir.path
         let user = ProcessInfo.processInfo.userName
         if merged["HOME"] == nil || merged["HOME"]?.isEmpty == true {
@@ -30,7 +30,6 @@ public final class EnvironmentLoader: @unchecked Sendable {
             merged["USER"] = user
         }
 
-        // Build a robust PATH that includes user Go binaries, Homebrew, and system binaries
         let defaultPaths = [
             "\(homePath)/go/bin",
             "\(homePath)/.local/bin",
@@ -49,7 +48,26 @@ public final class EnvironmentLoader: @unchecked Sendable {
         }
         merged["PATH"] = pathComponents.joined(separator: ":")
 
-        // 2. Auto-discover Google Application Default Credentials (ADC) if unset
+        self.envMap = merged
+    }
+
+    /// Asynchronously discovers and loads environment files in the background.
+    public func loadEnvironmentAsync() async {
+        await Task.detached(priority: .utility) { [self] in
+            self.loadEnvironment()
+        }.value
+    }
+
+    public func loadEnvironment() {
+        lock.lock()
+        defer { lock.unlock() }
+        loadEnvironmentLocked()
+    }
+
+    private func loadEnvironmentLocked() {
+        var merged = envMap
+
+        // 1. Auto-discover Google Application Default Credentials (ADC) if unset
         if merged["GOOGLE_APPLICATION_CREDENTIALS"] == nil || merged["GOOGLE_APPLICATION_CREDENTIALS"]?.isEmpty == true {
             let adcURL = homeDir.appendingPathComponent(".config/gcloud/application_default_credentials.json")
             if FileManager.default.fileExists(atPath: adcURL.path) {
@@ -58,7 +76,7 @@ public final class EnvironmentLoader: @unchecked Sendable {
             }
         }
 
-        // 3. Scan .env files
+        // 2. Scan .env files
         let envFileCandidates = [
             homeDir.appendingPathComponent("Music/LyriaFlow/.env"),
             homeDir.appendingPathComponent(".config/lyriaflow/.env"),
@@ -71,7 +89,7 @@ public final class EnvironmentLoader: @unchecked Sendable {
             parseEnvFile(at: envURL, into: &merged)
         }
 
-        // 4. Scan ~/.zshenv and ~/.zshrc for exported variables (critical for GUI launchd apps)
+        // 3. Scan ~/.zshenv and ~/.zshrc for exported variables (critical for GUI launchd apps)
         let shellConfigs = [
             homeDir.appendingPathComponent(".zshenv"),
             homeDir.appendingPathComponent(".zshrc"),
@@ -84,6 +102,7 @@ public final class EnvironmentLoader: @unchecked Sendable {
         }
 
         self.envMap = merged
+        self.hasLoadedFileConfigs = true
     }
 
     private func parseEnvFile(at url: URL, into dict: inout [String: String]) {
@@ -140,6 +159,9 @@ public final class EnvironmentLoader: @unchecked Sendable {
     public func value(for key: String) -> String? {
         lock.lock()
         defer { lock.unlock() }
+        if !hasLoadedFileConfigs {
+            loadEnvironmentLocked()
+        }
         if let v = envMap[key], !v.isEmpty {
             return v
         }
@@ -149,6 +171,9 @@ public final class EnvironmentLoader: @unchecked Sendable {
     public func resolvedEnvironment() -> [String: String] {
         lock.lock()
         defer { lock.unlock() }
+        if !hasLoadedFileConfigs {
+            loadEnvironmentLocked()
+        }
         return envMap
     }
 }

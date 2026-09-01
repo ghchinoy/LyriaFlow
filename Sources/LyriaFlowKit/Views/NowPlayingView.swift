@@ -162,6 +162,13 @@ public struct NowPlayingView: View {
         }
     }
 
+    private static let shortTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
     private func cleanModelName(_ raw: String) -> String {
         switch raw {
         case "lyria-3-clip-preview": return "Lyria 3 Clip"
@@ -171,9 +178,6 @@ public struct NowPlayingView: View {
     }
 
     private func formattedDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .none
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
+        Self.shortTimeFormatter.string(from: date)
     }
 }

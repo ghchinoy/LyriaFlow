@@ -48,6 +48,13 @@ public final class PersistenceStore: @unchecked Sendable {
         }
     }
 
+    /// Asynchronously loads tracks on a detached background task to prevent blocking the main actor on launch.
+    public func loadTracksAsync() async -> [Track] {
+        await Task.detached(priority: .userInitiated) { [self] in
+            self.loadTracks()
+        }.value
+    }
+
     public func saveTracks(_ tracks: [Track]) {
         lock.lock()
         defer { lock.unlock() }

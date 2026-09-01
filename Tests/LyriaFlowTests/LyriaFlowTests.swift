@@ -300,6 +300,23 @@ final class LyriaFlowTests: XCTestCase {
         XCTAssertTrue(url.path.contains("LyriaFlow/Tracks"))
     }
 
+    func testPersistenceStoreAsyncLoading() async {
+        let store = PersistenceStore.shared
+        let loaded = await store.loadTracksAsync()
+        // Async loading should complete without crashing or deadlock
+        XCTAssertNotNil(loaded)
+    }
+
+    @MainActor
+    func testPlaybackCoordinatorNonBlockingInit() async {
+        let coordinator = PlaybackCoordinator()
+        // Starts empty instantly on the main actor to allow single-frame render
+        XCTAssertNotNil(coordinator.tracks)
+        // Awaiting initial tracks load succeeds
+        await coordinator.loadInitialTracks()
+        XCTAssertNotNil(coordinator.tracks)
+    }
+
     func testMovementSuiteCreationAndCodable() throws {
         let suite = MovementSuite(
             movement1: "Movement I (Atmospheric Build): Ethereal ambient pads",

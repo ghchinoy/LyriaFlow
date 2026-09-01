@@ -194,7 +194,7 @@ public struct TrackInspectorView: View {
                                     Text(formatDate(liveTrack.createdAt))
                                         .font(.caption)
                                         .foregroundColor(.primary)
-                                    Text(ISO8601DateFormatter().string(from: liveTrack.createdAt))
+                                    Text(Self.iso8601Formatter.string(from: liveTrack.createdAt))
                                         .font(.caption2.monospaced())
                                         .foregroundColor(.secondary)
                                 }
@@ -356,10 +356,19 @@ public struct TrackInspectorView: View {
         return String(format: "%d:%02d (%.1fs)", mins, secs, duration)
     }
 
-    private func formatDate(_ date: Date) -> String {
+    private static let mediumDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .medium
-        return formatter.string(from: date)
+        return formatter
+    }()
+
+    private static let iso8601Formatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        return formatter
+    }()
+
+    private func formatDate(_ date: Date) -> String {
+        Self.mediumDateFormatter.string(from: date)
     }
 }

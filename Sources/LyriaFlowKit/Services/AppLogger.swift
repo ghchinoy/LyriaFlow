@@ -10,6 +10,7 @@ public final class AppLogger: @unchecked Sendable {
     private let fileManager = FileManager.default
     private let lock = NSLock()
     private let dateFormatter: ISO8601DateFormatter
+    private var isDirectoryCreated = false
 
     private init() {
         let libraryDir = fileManager.urls(for: .libraryDirectory, in: .userDomainMask).first!
@@ -19,9 +20,13 @@ public final class AppLogger: @unchecked Sendable {
 
         self.dateFormatter = ISO8601DateFormatter()
         dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    }
 
-        try? fileManager.createDirectory(at: logsDir, withIntermediateDirectories: true)
-        log("LyriaFlow Logger initialized. Log path: \(logFileURL.path)", category: "SYSTEM")
+    private func ensureDirectoryExistsLocked() {
+        if !isDirectoryCreated {
+            try? fileManager.createDirectory(at: logDirectory, withIntermediateDirectories: true)
+            isDirectoryCreated = true
+        }
     }
 
     public func log(_ message: String, category: String = "APP", level: String = "INFO") {
@@ -36,6 +41,7 @@ public final class AppLogger: @unchecked Sendable {
         defer { lock.unlock() }
 
         if let data = formattedLine.data(using: .utf8) {
+            ensureDirectoryExistsLocked()
             if fileManager.fileExists(atPath: logFileURL.path) {
                 if let fileHandle = try? FileHandle(forWritingTo: logFileURL) {
                     defer { try? fileHandle.close() }

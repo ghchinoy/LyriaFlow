@@ -29,7 +29,8 @@ public final class PlaybackCoordinator: ObservableObject {
         mcpClient: MCPClient = MCPClient(),
         geminiEngine: GeminiSuggestionEngine = GeminiSuggestionEngine(),
         persistence: PersistenceStore = .shared,
-        settings: AppSettings = .shared
+        settings: AppSettings = .shared,
+        initialTracks: [Track]? = nil
     ) {
         self.audioEngine = audioEngine ?? AudioEngine()
         self.mcpClient = mcpClient
@@ -37,11 +38,27 @@ public final class PlaybackCoordinator: ObservableObject {
         self.persistence = persistence
         self.settings = settings
 
-        self.tracks = persistence.loadTracks()
+        if let initial = initialTracks {
+            self.tracks = initial
+        } else {
+            self.tracks = []
+            Task { [weak self] in
+                await self?.loadInitialTracks()
+            }
+        }
+
         self.audioEngine.volume = Float(settings.volume)
         self.audioEngine.isLooping = settings.loopEnabled
 
         setupAudioCallbacks()
+    }
+
+    /// Asynchronously populates the track library from persistence without blocking first-frame render.
+    public func loadInitialTracks() async {
+        let loaded = await persistence.loadTracksAsync()
+        if !Task.isCancelled {
+            self.tracks = loaded
+        }
     }
 
     private func setupAudioCallbacks() {
